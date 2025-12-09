@@ -796,12 +796,7 @@ export default function Results() {
                 </div>
                 <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-100%] group-hover:translate-x-[100%] transition-transform duration-1000"></div>
               </div>
-              {/* Desktop: Speech bubble tail */}
-              <div className="hidden md:block absolute -bottom-2 right-6">
-                <svg width="20" height="12" viewBox="0 0 20 12" fill="none" className="drop-shadow-xl">
-                  <path d="M0 0C5 0 10 8 20 12H0V0Z" className="fill-purple-600" />
-                </svg>
-              </div>
+
             </div>
           </div>
         </div>
