@@ -770,8 +770,8 @@ export default function Results() {
     return (
       <>
         {/* Chat Trigger - Bottom Right (Mobile & Desktop) */}
-        <div 
-          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 lg:bottom-8 lg:right-8 no-print z-50 group" 
+        <div
+          className="fixed bottom-4 right-4 sm:bottom-6 sm:right-6 lg:bottom-8 lg:right-8 no-print z-50 group"
           onClick={handleChatClick}
         >
           <div className="relative">
@@ -812,8 +812,8 @@ export default function Results() {
             <div className="relative w-full h-full flex flex-col overflow-hidden">
               {/* Chat Content - Full height, no extra padding */}
               <div className="flex-1 overflow-hidden h-full">
-                <ChatSidebar 
-                  productId={resultsData.product.id} 
+                <ChatSidebar
+                  productId={resultsData.product.id}
                   isMobile={true}
                   onClose={handleCloseMobileChat}
                 />
@@ -898,7 +898,7 @@ export default function Results() {
       defaultOpen={true}
       style={
         {
-          "--sidebar-width": "20rem",
+          "--sidebar-width": "24rem",
         } as React.CSSProperties
       }
     >

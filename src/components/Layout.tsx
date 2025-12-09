@@ -42,12 +42,12 @@ export const Layout = ({ children, showNavigation = true, sidebarTrigger }: Layo
     setIsRegenerating(true);
     try {
       const accessToken = localStorage.getItem("access_token") || "";
-      
+
       // Call regenerate analysis API
       await regenerateAnalysis(productId, accessToken);
-      
+
       toast({
-        title:"Analysis in Progress",
+        title: "Analysis in Progress",
         description: "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
         duration: 10000,
       });
@@ -72,7 +72,7 @@ export const Layout = ({ children, showNavigation = true, sidebarTrigger }: Layo
       {/* Add no-print class to hide navigation in PDF */}
       {showNavigation && (
         <nav className="sticky top-0 z-50 border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 no-print">
-          <div className="container mx-auto px-4">
+          <div className="px-4">
             <div className="flex h-16 items-center justify-between">
               {/* Left side - Sidebar trigger and Logo */}
               <div className="flex items-center space-x-3">
