@@ -55,62 +55,50 @@ interface AnalyticsData {
   analytics?: {
     brand_name?: string;
     brand_website?: string;
-    model_name?: string;
+    models_used?: string;
     status?: string;
-    analysis_scope?: {
-      search_keywords?: string[];
-      keywords_or_queries?: string[];
-      date_range?: {
-        from?: string | null;
-        to?: string | null;
+    search_keywords?: {
+      [key: string]: {
+        name: string;
+        prompts: string[];
       };
     };
-    ai_visibility?: {
-      weighted_mentions_total?: number;
-      geo_score?: number;
-      percentile_visibility?: number;
-      percentile_trace?: {
-        sorted_brand_info?: Array<{
-          brand: string;
-          geo_score: number;
-          logo: string;
-        }>;
-        brands_with_lower_geo_score?: number;
-        total_brands?: number;
-        calculation?: string;
+    brands?: Array<{
+      brand: string;
+      geo_score: number;
+      logo: string;
+      mention_count: number;
+      mention_score: number;
+      mention_breakdown?: {
+        [key: string]: number;
       };
-      breakdown?: {
-        top_two_mentions?: number;
-        top_five_mentions?: number;
-        later_mentions?: number;
-        calculation?: string;
+      geo_tier: string;
+      mention_tier: string;
+      summary: string;
+      outlook: string;
+    }>;
+    llm_wise_data?: {
+      [llm: string]: {
+        mentions_count: number;
+        prompts: number;
+        average_rank: number;
+        sources: number;
+        t1: number;
+        t2: number;
+        t3: number;
       };
-      tier_mapping_method?: string;
-      brand_tier?: string;
-      explanation?: string;
-    };
-    sentiment?: {
-      dominant_sentiment?: string;
-      summary?: string;
-    };
-    competitor_visibility_table?: {
-      header?: string[];
-      rows?: any[][];
-    };
-    competitor_sentiment_table?: {
-      header?: string[];
-      rows?: any[][];
-    };
-    brand_mentions?: {
-      total_mentions?: number;
-      queries_with_mentions?: number;
-      total_sources_checked?: number;
-      alignment_with_visibility?: string;
     };
     sources_and_content_impact?: {
-      header?: any[];
-      rows?: any[][];
-      depth_notes?: any;
+      [sourceType: string]: {
+        mentions: {
+          [brand: string]: {
+            count: number;
+            score: number;
+            insight: string;
+          };
+        };
+        pages_used: string[];
+      };
     };
     recommendations?: Array<{
       overall_insight?: string;
@@ -129,6 +117,18 @@ interface AnalyticsData {
       };
       prioritized_actions?: string[];
       conclusion?: string;
+    };
+    platform_presence?: {
+      reddit?: string;
+      linkedin?: string;
+      wikipedia?: string;
+      product_hunt?: string;
+      medium?: string;
+      github?: string;
+      x?: string;
+    };
+    brand_websites?: {
+      [brand: string]: string;
     };
   };
   created_at?: string;
@@ -358,9 +358,9 @@ export default function Results() {
             if (res.product_id) {
               localStorage.setItem("product_id", res.product_id);
             }
-            if (mostRecentAnalysis.analytics?.analysis_scope?.search_keywords) {
-              const keywords =
-                mostRecentAnalysis.analytics.analysis_scope.search_keywords;
+            if (mostRecentAnalysis.analytics?.search_keywords) {
+              const keywordsObj = mostRecentAnalysis.analytics.search_keywords;
+              const keywords = Object.values(keywordsObj).map((kw: { name: string; prompts: string[] }) => kw.name);
               localStorage.setItem(
                 "keywords",
                 JSON.stringify(keywords.map((k) => ({ keyword: k })))
@@ -853,30 +853,48 @@ export default function Results() {
     );
   }
 
-  // Extract brand mention data from percentile_trace.sorted_brand_info
-  type BrandInfo = { brand: string; geo_score: number; logo: string; mention_count?: number; mention_score?: number };
-  const sortedBrandInfo: BrandInfo[] = data.ai_visibility?.percentile_trace?.sorted_brand_info || [];
-  const currentBrandInfo = sortedBrandInfo.find(
+  // Extract brand data from new brands array structure
+  const brands = data.brands || [];
+  const currentBrandInfo = brands.find(
     (b) => b.brand?.toLowerCase() === data.brand_name?.toLowerCase()
   );
-  const topBrandInfo = sortedBrandInfo[sortedBrandInfo.length - 1]; // Last item has highest score
+  
+  // Sort brands by geo_score to find top brand
+  const sortedBrands = [...brands].sort((a, b) => b.geo_score - a.geo_score);
+  const topBrandInfo = sortedBrands[0]; // Highest geo_score
+
+  // Calculate percentile visibility from current brand's position
+  // Percentile = ((total - rank) / total) * 100, where rank is 1-indexed
+  const currentBrandIndex = sortedBrands.findIndex(
+    (b) => b.brand?.toLowerCase() === data.brand_name?.toLowerCase()
+  );
+  const percentileVisibility = currentBrandIndex >= 0 && sortedBrands.length > 0
+    ? ((sortedBrands.length - currentBrandIndex) / sortedBrands.length) * 100
+    : 0;
+
+  // Get tier from current brand info or calculate from percentile
+  const getTierFromPercentile = (percentile: number): string => {
+    if (percentile >= 75) return "High";
+    if (percentile >= 50) return "Medium";
+    return "Low";
+  };
+
+  const visibilityTier = currentBrandInfo?.geo_tier || getTierFromPercentile(percentileVisibility);
 
   // Transform data to match component interfaces - all values directly from backend
   const insights = {
     ai_visibility: {
-      tier: data.ai_visibility?.brand_tier || "Low",
-      percentile_visibility: data.ai_visibility?.percentile_visibility ?? 0,
-      geo_score: data.ai_visibility?.geo_score ?? 0,
+      tier: visibilityTier,
+      percentile_visibility: percentileVisibility,
+      geo_score: currentBrandInfo?.geo_score ?? 0,
     },
     brand_mentions: {
-      // mention_count from sorted_brand_info is total mentions for the brand
-      total_mentions: currentBrandInfo?.mention_count ?? data.brand_mentions?.total_mentions ?? 0,
-      // mention_score from sorted_brand_info is the percentile for speedometer
+      total_mentions: currentBrandInfo?.mention_count ?? 0,
       mention_score: currentBrandInfo?.mention_score ?? 0,
     },
     dominant_sentiment: {
-      sentiment: data.sentiment?.dominant_sentiment || "",
-      statement: data.sentiment?.summary || "",
+      sentiment: currentBrandInfo?.outlook || "",
+      statement: currentBrandInfo?.summary || "",
     },
   };
 
@@ -887,6 +905,131 @@ export default function Results() {
   const handlePrint = () => {
     window.print();
   };
+
+  // Transform sources_and_content_impact from new object structure to table format
+  const transformSourcesAndContentImpact = () => {
+    if (!data.sources_and_content_impact) return null;
+
+    const sourceTypes = Object.keys(data.sources_and_content_impact);
+    if (sourceTypes.length === 0) return null;
+
+    // Get all unique brands from all sources
+    const allBrands = new Set<string>();
+    sourceTypes.forEach((sourceType) => {
+      const sourceData = data.sources_and_content_impact![sourceType];
+      Object.keys(sourceData.mentions).forEach((brand) => allBrands.add(brand));
+    });
+    const brandList = Array.from(allBrands);
+
+    // Build header: [Sources, Brand1, Brand1 Mentions, Brand1 Score, Brand2, ...]
+    const header: string[] = ["Sources"];
+    brandList.forEach((brand) => {
+      header.push(brand, `${brand} Mentions`, `${brand} Score`);
+    });
+
+    // Build rows
+    const rows: (string | number)[][] = [];
+    sourceTypes.forEach((sourceType) => {
+      const sourceData = data.sources_and_content_impact![sourceType];
+      const row: (string | number)[] = [sourceType];
+      
+      brandList.forEach((brand) => {
+        const mentionData = sourceData.mentions[brand] || { count: 0, score: 0, insight: "" };
+        // Calculate tier from score (0-1 scale, convert to High/Medium/Low)
+        const tier = mentionData.score >= 0.75 ? "High" : mentionData.score >= 0.5 ? "Medium" : "Low";
+        row.push(tier, mentionData.count, mentionData.score.toFixed(2));
+      });
+      
+      rows.push(row);
+    });
+
+    // Build depth_notes structure
+    const depthNotes: any = {};
+    brandList.forEach((brand) => {
+      depthNotes[brand] = {};
+      sourceTypes.forEach((sourceType) => {
+        const sourceData = data.sources_and_content_impact![sourceType];
+        const mentionData = sourceData.mentions[brand];
+        if (mentionData) {
+          depthNotes[brand][sourceType] = {
+            insight: mentionData.insight || "",
+            pages_used: sourceData.pages_used || [],
+          };
+        }
+      });
+    });
+
+    return {
+      header,
+      rows,
+      depth_notes: depthNotes,
+    };
+  };
+
+  // Generate competitor visibility table from brands array showing mention breakdown by keyword
+  const generateCompetitorVisibilityTable = () => {
+    if (!brands || brands.length === 0) return null;
+    if (!data.search_keywords) return null;
+
+    // Get keyword names in order (k1, k2, k3)
+    const keywordKeys = Object.keys(data.search_keywords).sort(); // ['k1', 'k2', 'k3']
+    const keywordNames = keywordKeys.map((key) => data.search_keywords![key].name);
+
+    // Sort brands by total mention_count descending
+    const sortedBrands = [...brands].sort((a, b) => b.mention_count - a.mention_count);
+
+    // Build header: [brand_names, k1.name, k2.name, k3.name]
+    const header = ["brand_names", ...keywordNames];
+
+    // Build rows - each brand gets a row with mention counts per keyword
+    const rows: (string | number)[][] = sortedBrands.map((brand) => {
+      const row: (string | number)[] = [brand.brand];
+      
+      // For each keyword, get the mention count from mention_breakdown, default to 0 if missing
+      keywordKeys.forEach((key) => {
+        const mentionCount = brand.mention_breakdown?.[key] || 0;
+        row.push(mentionCount);
+      });
+      
+      return row;
+    });
+
+    return {
+      header,
+      rows,
+    };
+  };
+
+  // Generate competitor sentiment table from brands array
+  const generateCompetitorSentimentTable = () => {
+    if (!brands || brands.length === 0) return null;
+
+    // Sort by geo_score descending
+    const sortedBrands = [...brands].sort((a, b) => b.geo_score - a.geo_score);
+
+    const header = ["Brand", "Sentiment Summary", "Overall Outlook"];
+
+    const rows: string[][] = sortedBrands.map((brand) => [
+      brand.brand,
+      brand.summary,
+      brand.outlook,
+    ]);
+
+    return {
+      header,
+      rows,
+    };
+  };
+
+  const transformedSourcesData = transformSourcesAndContentImpact();
+  const competitorVisibilityTable = generateCompetitorVisibilityTable();
+  const competitorSentimentTable = generateCompetitorSentimentTable();
+
+  // Build brand logos array for components
+  const brandLogos = brands.map((b) => ({
+    brand: b.brand,
+    logo: b.logo,
+  }));
 
   return (
     <SidebarProvider
@@ -924,17 +1067,19 @@ export default function Results() {
                 <BrandHeader
                   brandName={data.brand_name || ""}
                   brandWebsite={data.brand_website || ""}
-                  brandLogo={data.ai_visibility?.percentile_trace?.sorted_brand_info?.find(
-                    b => b.brand === data.brand_name
-                  )?.logo}
-                  keywordsAnalyzed={data.analysis_scope?.search_keywords || []}
+                  brandLogo={currentBrandInfo?.logo}
+                  keywordsAnalyzed={
+                    data.search_keywords
+                      ? Object.values(data.search_keywords).map((kw) => kw.name)
+                      : []
+                  }
                   status={data.status || ""}
                   date={
                     displayAnalytics?.updated_at ||
                     displayAnalytics?.created_at ||
                     ""
                   }
-                  modelName={data.model_name || ""}
+                  modelName={data.models_used || ""}
                 />
               </div>
 
@@ -981,83 +1126,45 @@ export default function Results() {
                   yourBrandTotal={currentBrandInfo?.mention_count || 0}
                   topBrand={topBrandName}
                   topBrandTotal={topBrandMentionCount}
-                  competitorCount={sortedBrandInfo.length}
+                  competitorCount={brands.length}
                 />
               </div>
 
               {/* Source Analysis Section */}
-              {data.sources_and_content_impact &&
-                data.sources_and_content_impact.header &&
-                data.sources_and_content_impact.rows && (
+              {transformedSourcesData && (
                   <div
                     style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
                   >
                     <SourceAnalysis
-                      contentImpact={{
-                        header: data.sources_and_content_impact.header,
-                        rows: data.sources_and_content_impact.rows,
-                        depth_notes:
-                          data.sources_and_content_impact.depth_notes,
-                      }}
+                      contentImpact={transformedSourcesData}
                       brandName={data.brand_name || ""}
                     />
                   </div>
                 )}
 
               {/* Competitor Analysis Section */}
-              {(data.competitor_visibility_table?.header &&
-                data.competitor_visibility_table?.rows) ||
-                (data.competitor_sentiment_table?.header &&
-                  data.competitor_sentiment_table?.rows) ? (
+              {(competitorVisibilityTable || competitorSentimentTable) ? (
                 <div style={{ pageBreakInside: "avoid", breakInside: "avoid" }}>
                   <CompetitorAnalysis
                     brandName={data.brand_name || ""}
-                    brandLogos={data.ai_visibility?.percentile_trace?.sorted_brand_info?.map(b => ({
-                      brand: b.brand,
-                      logo: b.logo
-                    }))}
+                    brandLogos={brandLogos}
                     analysis={{
-                      competitor_visibility_table:
-                        data.competitor_visibility_table?.header &&
-                          data.competitor_visibility_table?.rows
-                          ? {
-                            header: data.competitor_visibility_table.header,
-                            rows: data.competitor_visibility_table.rows,
-                          }
-                          : undefined,
-                      competitor_sentiment_table:
-                        data.competitor_sentiment_table?.header &&
-                          data.competitor_sentiment_table?.rows
-                          ? {
-                            header: data.competitor_sentiment_table.header,
-                            rows: data.competitor_sentiment_table.rows,
-                          }
-                          : undefined,
+                      competitor_visibility_table: competitorVisibilityTable || undefined,
+                      competitor_sentiment_table: competitorSentimentTable || undefined,
                     }}
                   />
                 </div>
               ) : null}
 
               {/* Content Impact Section */}
-              {data.sources_and_content_impact &&
-                data.sources_and_content_impact.header &&
-                data.sources_and_content_impact.rows &&
-                data.sources_and_content_impact.rows.length > 0 && (
+              {transformedSourcesData && transformedSourcesData.rows.length > 0 && (
                   <div
                     style={{ pageBreakInside: "avoid", breakInside: "avoid" }}
                   >
                     <ContentImpact
                       brandName={data.brand_name || ""}
-                      brandLogos={data.ai_visibility?.percentile_trace?.sorted_brand_info?.map(b => ({
-                        brand: b.brand,
-                        logo: b.logo
-                      }))}
-                      contentImpact={{
-                        header: data.sources_and_content_impact.header,
-                        rows: data.sources_and_content_impact.rows,
-                        depth_notes:
-                          data.sources_and_content_impact.depth_notes,
-                      }}
+                      brandLogos={brandLogos}
+                      contentImpact={transformedSourcesData}
                     />
                   </div>
                 )}
