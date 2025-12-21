@@ -33,4 +33,7 @@ export const API_ENDPOINTS = {
 
   // Dashboard
   dashboardUsers: `${BASE_URL}/api/v1/dashboard/users`,
+
+  getProductSearchResults: (productId: string) =>
+    `${BASE_URL}/api/v1/products/search/${productId}`,
 };

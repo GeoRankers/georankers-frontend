@@ -489,3 +489,72 @@ export const getDashboardUsers = async (
     throw new Error(errorMessage);
   }
 };
+
+/* =====================
+   SEARCH RESULTS TYPES
+===================== */
+
+export interface SearchResult {
+  name: string;
+  rank: number;
+  sources: string[];
+  description: string;
+  additional_fields?: Record<string, any>;
+}
+
+export interface QueryResult {
+  id: string;
+  query: string;
+  created_at: string;
+  updated_at: string;
+  result: {
+    gemini?: SearchResult[];
+    openai?: SearchResult[];
+  };
+}
+
+export interface KeywordData {
+  keyword_id: string;
+  keyword: string;
+  results: QueryResult[];
+}
+
+export interface SearchResultsResponse {
+  product_id: string;
+  keyword_count: number;
+  total_results: number;
+  limit: number;
+  keywords: KeywordData[];
+}
+
+// Auth interceptor
+API.interceptors.request.use((config) => {
+  const token = localStorage.getItem("access_token");
+  if (token && config.headers) {
+    config.headers.Authorization = `Bearer ${token}`;
+  }
+  config.headers["Content-Type"] = "application/json";
+  return config;
+});
+
+/* =====================
+   HELPER
+===================== */
+
+export const getProductSearchResults = async (
+  productId: string
+): Promise<SearchResultsResponse> => {
+  try {
+    const res = await API.get(
+      API_ENDPOINTS.getProductSearchResults(productId)
+    );
+    return res.data;
+  } catch (error: any) {
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      error.message ||
+      "Failed to fetch search results";
+    throw new Error(message);
+  }
+};
