@@ -53,7 +53,7 @@ const ResultsContent = () => {
     }
   };
 
-  return <Layout>{renderContent()}</Layout>;
+  return <Layout>{renderContent()}<div className="md:w-full md:h-[100px]"></div></Layout>;
 };
 
 const NewResultsContainer = () => {
