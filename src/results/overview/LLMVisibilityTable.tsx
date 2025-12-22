@@ -19,7 +19,7 @@ export const LLMVisibilityTable = () => {
     <div className="bg-card rounded-xl border border-border p-4 md:p-6 overflow-hidden">
       <div className="flex items-center gap-2 mb-1">
         <Bot className="w-5 h-5 text-primary" />
-        <h3 className="text-lg font-semibold text-foreground">AI Search Visibility</h3>
+        <h3 className="text-lg font-semibold text-foreground">Model-Wise Visibility</h3>
       </div>
       <p className="text-xs text-muted-foreground mb-4">Mentions by Platform</p>
       
@@ -29,9 +29,9 @@ export const LLMVisibilityTable = () => {
             <tr className="border-b border-border">
               <th className="text-left py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Platform</th>
               <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Mentions</th>
-              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Prompts</th>
+              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Number of Prompts</th>
               <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Avg Rank</th>
-              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Sources</th>
+              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Number of Sources Checked</th>
             </tr>
           </thead>
           <tbody>

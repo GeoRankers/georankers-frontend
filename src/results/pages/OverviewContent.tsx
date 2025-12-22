@@ -4,14 +4,13 @@ import {
   getAIVisibilityMetrics,
   getMentionsPosition,
   getBrandMentionResponseRates,
+  getBrandMentionPercentile,
   getSentiment,
   hasAnalyticsData,
 } from "@/results/data/analyticsData";
 import { LLMVisibilityTable } from "@/results/overview/LLMVisibilityTable";
 import { PlatformPresence } from "@/results/overview/PlatformPresence";
 import { CompetitorComparisonChart } from "@/results/overview/CompetitorComparisonChart";
-import { SourceMentionsChart } from "@/results/overview/SourceMentionsChart";
-import { SourceInsights } from "@/results/overview/SourceInsights";
 import { BrandMentionsRadar } from "@/results/overview/BrandMentionsRadar";
 import BrandInfoBar from "@/results/overview/BrandInfoBar";
 import { TierBadge } from "@/results/ui/TierBadge";
@@ -64,6 +63,7 @@ const OverviewContent = () => {
   const visibilityData = getAIVisibilityMetrics();
   const mentionsData = getMentionsPosition();
   const brandMentionRates = getBrandMentionResponseRates();
+  const brandMentionPercentile = getBrandMentionPercentile();
   const sentiment = getSentiment();
 
   const getMedalIcon = (index: number, isTestBrand: boolean) => {
@@ -197,7 +197,7 @@ const OverviewContent = () => {
                   <MessageSquare className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
                 </div>
                 <span className="font-semibold text-foreground">
-                  Brand Mention Score
+                  Brand Mentions
                 </span>
               </div>
               <TierBadge tier={mentionsData.tier} />
@@ -262,6 +262,12 @@ const OverviewContent = () => {
             <p className="text-sm text-foreground bold border-t border-border pt-3 mt-4">
               Your brand mention score is at position {mentionsData.position} out of {mentionsData.totalBrands} brands for these queries.
             </p>
+            
+            {brandMentionPercentile > 0 && (
+              <p className="text-xs text-muted-foreground italic mt-2">
+                You are ahead of {brandMentionPercentile}% of brands for these queries.
+              </p>
+            )}
           </div>
 
           {/* Sentiment Card */}
@@ -295,9 +301,6 @@ const OverviewContent = () => {
           <PlatformPresence />
         </div>
 
-        {/* Sources */}
-        <SourceMentionsChart />
-        <SourceInsights />
       </div>
     </div>
   );

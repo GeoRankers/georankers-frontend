@@ -12,6 +12,7 @@ import {
   Search,
   Lightbulb,
   Link2,
+  FolderOpen,
 } from "lucide-react";
 import { useState, useMemo } from "react";
 
@@ -23,6 +24,7 @@ const SourcesAllContent = () => {
 
   const [expandedSource, setExpandedSource] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
+  const [showAllSources, setShowAllSources] = useState(false);
 
   // Transform the new data structure
   const sourcesData = useMemo(() => {
@@ -50,14 +52,28 @@ const SourcesAllContent = () => {
     });
   }, [sourcesAndContentImpact, brandName]);
 
+  // Get sources organized by category
+  const allSourcesData = useMemo(() => {
+    return sourcesData.map(category => ({
+      categoryName: category.name,
+      urls: category.pagesUsed,
+    })).filter(cat => cat.urls.length > 0);
+  }, [sourcesData]);
+
   // Filter sources based on search
   const filteredSources = sourcesData.filter(s => 
     s.name.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const filteredAllSources = allSourcesData.filter(cat =>
+    cat.categoryName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+    cat.urls.some(url => url.toLowerCase().includes(searchQuery.toLowerCase()))
+  );
+
   // Total stats
   const totalSources = sourcesData.length;
-  const totalMentionsAll = sourcesData.reduce((acc, s) => acc + s.totalMentions, 0);
+  const totalMentionsAll = sourcesData.reduce((acc, s) => acc + s.brandMentions, 0);
+  const totalUniqueSources = sourcesData.reduce((acc, s) => acc + s.pagesUsed.length, 0);
 
   const getBrandLogo = (name: string) => {
     const brand = brandInfo.find(b => b.brand === name);
@@ -93,7 +109,7 @@ const SourcesAllContent = () => {
             </div>
             <div>
               <h1 className="text-lg md:text-2xl font-bold text-foreground">Sources & Content Impact</h1>
-              <p className="text-xs md:text-sm text-muted-foreground">{totalSources} source categories, {totalMentionsAll} total mentions</p>
+              <p className="text-xs md:text-sm text-muted-foreground">{totalSources} source categories, {totalMentionsAll} mentions in total for {brandName}, {totalUniqueSources} unique sources</p>
             </div>
           </div>
         </div>
@@ -104,12 +120,77 @@ const SourcesAllContent = () => {
         <Search className="absolute left-3 md:left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
         <input
           type="text"
-          placeholder="Search source categories..."
+          placeholder="Search source categories or URLs..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="w-full pl-10 md:pl-12 pr-3 md:pr-4 py-2.5 md:py-3 bg-card border border-border rounded-lg md:rounded-xl text-sm md:text-base text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary/50 focus:border-primary transition-all"
         />
       </div>
+
+      {/* All Sources Dropdown */}
+      <div className="bg-card rounded-xl border border-border overflow-hidden shadow-sm">
+        <div 
+          className="p-4 md:p-5 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/30 transition-colors"
+          onClick={() => setShowAllSources(!showAllSources)}
+        >
+          <div className="flex items-center gap-3 flex-1 min-w-0">
+            {showAllSources ? (
+              <ChevronDown className="w-5 h-5 text-primary flex-shrink-0" />
+            ) : (
+              <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
+            )}
+            <FolderOpen className="w-5 h-5 text-primary flex-shrink-0" />
+            <div className="min-w-0">
+              <span className="font-semibold text-foreground text-sm md:text-base block">All Sources</span>
+              <span className="text-xs text-muted-foreground">{totalUniqueSources} total sources across all categories</span>
+            </div>
+          </div>
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <span className="inline-flex items-center justify-center px-3 py-1.5 rounded-full text-xs font-bold bg-primary/20 text-primary">
+              {totalUniqueSources}
+            </span>
+          </div>
+        </div>
+        
+        {/* All Sources Content */}
+        {showAllSources && (
+          <div className="border-t border-border/50 bg-muted/20">
+            <div className="p-4 md:p-5 space-y-6">
+              {filteredAllSources.map((category, idx) => (
+                <div key={idx}>
+                  <h4 className="text-sm font-semibold text-foreground mb-3 flex items-center gap-2">
+                    <Layers className="w-4 h-4 text-primary" />
+                    {category.categoryName}
+                  </h4>
+                  <div className="space-y-2 pl-6">
+                    {category.urls.map((url, urlIdx) => (
+                      <div key={urlIdx} className="flex items-start gap-2">
+                        <span className="text-xs text-muted-foreground mt-0.5 flex-shrink-0">{urlIdx + 1}.</span>
+                        <a
+                          href={url.startsWith("http") ? url : `https://${url}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm text-primary hover:underline break-all"
+                        >
+                          {url}
+                        </a>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+              
+              {filteredAllSources.length === 0 && (
+                <div className="text-center py-6 text-muted-foreground text-sm">
+                  No sources found matching "{searchQuery}"
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      <div className="border-t"/>
 
       {/* Sources with Dropdown */}
       <div className="space-y-4">

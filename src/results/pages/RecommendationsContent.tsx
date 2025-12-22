@@ -63,7 +63,7 @@ const RecommendationsContent = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3">
             <div className="flex items-center gap-1.5 md:gap-3">
               <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
-              <span className="text-[10px] md:text-sm font-medium text-foreground">Medium</span>
+              <span className="text-[10px] md:text-sm font-medium text-foreground">Medium Impact</span>
             </div>
             <span className="text-xl md:text-2xl font-bold text-amber-500">{mediumImpact.length}</span>
           </div>

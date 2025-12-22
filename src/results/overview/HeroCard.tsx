@@ -15,7 +15,7 @@ export const HeroCard = () => {
 
   return (
     <div className="amplitude-gradient rounded-xl p-4 md:p-6 text-primary-foreground overflow-hidden">
-      <p className="text-sm opacity-80 mb-2">Login to Amplitude to customize your prompts</p>
+      <p className="text-sm opacity-80 mb-2">Login to GeoRankers to customize your prompts</p>
       <h2 className="text-2xl font-bold mb-6 flex items-center gap-2">
         You're gaining ground in AI visibility
         <Sparkles className="w-6 h-6 text-amber-400" />

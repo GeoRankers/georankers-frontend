@@ -88,8 +88,8 @@ export const BrandMentionsRadar = () => {
       </div>
       <p className="text-xs text-muted-foreground mb-4">
         {selectedKeyword === 'all' 
-          ? 'Total visibility scores across all keywords' 
-          : `Visibility for "${selectedKeyword}"`}
+          ? 'Mention count across all keywords' 
+          : `Mention count for "${selectedKeyword}"`}
       </p>
       
       <div className="h-[280px]">

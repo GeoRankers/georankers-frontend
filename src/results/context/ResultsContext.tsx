@@ -21,8 +21,7 @@ export type TabType =
   | "executive-summary" 
   | "prompts" 
   | "sources-all" 
-  | "competitors-comparisons" 
-  | "brand-sentiment" 
+  | "competitors-comparisons"
   | "recommendations";
 
 interface ResultsContextType {
@@ -69,8 +68,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
     "/newresults/prompts": "prompts",
     "/newresults/sources-all": "sources-all",
     "/newresults/competitors-comparisons": "competitors-comparisons",
-    "/newresults/brand-sentiment": "brand-sentiment",
-    "/newresults/recommendations": "recommendations",
+
   };
 
   // Sync activeTab with URL path
@@ -91,7 +89,6 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
       "prompts": "/newresults/prompts",
       "sources-all": "/newresults/sources-all",
       "competitors-comparisons": "/newresults/competitors-comparisons",
-      "brand-sentiment": "/newresults/brand-sentiment",
       "recommendations": "/newresults/recommendations",
     };
     const targetPath = tabToPath[tab];

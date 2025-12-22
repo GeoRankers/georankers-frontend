@@ -35,7 +35,7 @@ const extractDomain = (url: string): string => {
 };
 
 const FAVICON_URL_TEMPLATE =
-  import.meta.env.VITE_FAVICON_URL_TEMPLATE;
+  import.meta.env.VITE_FAVICON_URL_TEMPLATE || 'https://www.google.com/s2/favicons?domain={domain}&sz=128';
 
 /**
  * Generate favicon URL using env template
@@ -44,6 +44,7 @@ const faviconFromUrl = (url: string): string => {
   if (!url) return "";
 
   const domain = extractDomain(url);
+  if (!domain) return "";
 
   return FAVICON_URL_TEMPLATE.replace("{domain}", domain);
 };

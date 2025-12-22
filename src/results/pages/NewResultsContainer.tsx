@@ -4,9 +4,8 @@ import OverviewContent from "./OverviewContent";
 import PromptsContent from "./PromptsContent";
 import SourcesAllContent from "./SourcesAllContent";
 import CompetitorsComparisonsContent from "./CompetitorsComparisonsContent";
-import BrandSentimentContent from "./BrandSentimentContent";
-import RecommendationsContent from "./RecommendationsContent";
 import ExecutiveSummaryContent from "./ExecutiveSummaryContent";
+import RecommendationsContent from "./RecommendationsContent";
 import { Search } from "lucide-react";
 
 const ResultsContent = () => {
@@ -47,8 +46,6 @@ const ResultsContent = () => {
         return <SourcesAllContent />;
       case "competitors-comparisons":
         return <CompetitorsComparisonsContent />;
-      case "brand-sentiment":
-        return <BrandSentimentContent />;
       case "recommendations":
         return <RecommendationsContent />;
       default:

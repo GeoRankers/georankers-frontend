@@ -1,5 +1,4 @@
 import { format } from 'date-fns';
-import { toZonedTime } from 'date-fns-tz';
 import { calculatePercentile, getTierFromPercentile } from './formulas';
 
 const ANALYTICS_STORAGE_KEY = 'new_results_analytics_data';
@@ -11,24 +10,28 @@ let currentAnalyticsData: any = null;
  * Helper to format logo URL - handles both full URLs and domain-only formats
  */
 const FAVICON_URL_TEMPLATE =
-  import.meta.env.VITE_FAVICON_URL_TEMPLATE;
+  import.meta.env.VITE_FAVICON_URL_TEMPLATE || 'https://www.google.com/s2/favicons?domain={domain}&sz=128';
 
 /**
  * Normalize input to a clean domain (no protocol, no www, no path)
  */
-const normalizeDomain = (input: string): string =>
-  input
+const normalizeDomain = (input: string): string => {
+  if (!input || typeof input !== 'string') return '';
+  return input
     .replace(/^https?:\/\//i, '')
     .replace(/^www\./i, '')
     .split('/')[0];
+};
 
 export const formatLogoUrl = (logo: string): string => {
-  if (!logo) return '';
+  if (!logo || typeof logo !== 'string') return '';
   if (/^https?:\/\//i.test(logo)) {
     return logo;
   }
 
   const domain = normalizeDomain(logo);
+  if (!domain) return '';
+  
   const httpsWwwDomain = `https://www.${domain}`;
 
   return FAVICON_URL_TEMPLATE.replace(
@@ -38,8 +41,8 @@ export const formatLogoUrl = (logo: string): string => {
 };
 
 /**
- * Convert UTC date to IST and format using date-fns and date-fns-tz
- * Properly handles timezone conversion
+ * Convert UTC date to IST and format
+ * IST is UTC+5:30
  */
 export const formatDateToIST = (dateStr: string): string => {
   if (!dateStr) return '';
@@ -48,8 +51,9 @@ export const formatDateToIST = (dateStr: string): string => {
     // Parse the date string (assumed to be in UTC)
     const utcDate = new Date(dateStr);
     
-    // Convert to IST timezone (Asia/Kolkata)
-    const istDate = toZonedTime(utcDate, 'Asia/Kolkata');
+    // Add 5 hours 30 minutes to convert UTC to IST
+    const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
+    const istDate = new Date(utcDate.getTime() + istOffset);
     
     // Format the date in IST
     return format(istDate, 'd MMM yyyy, hh:mm a');
@@ -414,9 +418,24 @@ export const getMentionsPosition = (): {
   };
 };
 
+// Get total number of prompts from search_keywords
+export const getTotalPromptCount = (): number => {
+  const analytics = getAnalytics();
+  if (!analytics?.search_keywords) return 0;
+  
+  let totalPrompts = 0;
+  Object.values(analytics.search_keywords).forEach((kw: any) => {
+    if (kw.prompts && Array.isArray(kw.prompts)) {
+      totalPrompts += kw.prompts.length;
+    }
+  });
+  
+  return totalPrompts;
+};
+
 // Get brand mention response rates for table display
 // Shows top 2 brands + test brand with % of AI responses where brand appeared
-// % = (queries where brand appeared / total queries) * 100, capped at 100%
+// % = (sum of mention_breakdown values / total prompts) * 100, capped at 100%
 export const getBrandMentionResponseRates = (): Array<{
   brand: string;
   responseRate: number;
@@ -425,12 +444,24 @@ export const getBrandMentionResponseRates = (): Array<{
 }> => {
   const brandName = getBrandName();
   const brandInfoWithLogos = getBrandInfoWithLogos();
+  const totalPrompts = getTotalPromptCount();
   
-  // Use mention_score from brands array which is already a percentage
+  // Calculate response rate from mention_breakdown
+  // mention_breakdown shows how many prompts the brand appeared in for each keyword
   const brandsWithRates = brandInfoWithLogos.map(b => {
-    // mention_score from data is already a percentage value
+    // Sum up all values in mention_breakdown to get total prompts where brand appeared
+    let totalMentions = 0;
+    if (b.mention_breakdown) {
+      Object.values(b.mention_breakdown).forEach((count: number) => {
+        totalMentions += count;
+      });
+    }
+    
+    // Calculate percentage: (prompts with brand / total prompts) * 100
     // Cap at 100% to ensure no values exceed maximum
-    const responseRate = Math.min(b.mention_score, 100);
+    const responseRate = totalPrompts > 0 
+      ? Math.min(Math.round((totalMentions / totalPrompts) * 100), 100) 
+      : 0;
     
     return {
       brand: b.brand,
@@ -450,6 +481,40 @@ export const getBrandMentionResponseRates = (): Array<{
   }
   
   return result;
+};
+
+// Get brand's mention percentile for display
+export const getBrandMentionPercentile = (): number => {
+  const brandName = getBrandName();
+  const brandInfoWithLogos = getBrandInfoWithLogos();
+  const totalPrompts = getTotalPromptCount();
+  
+  if (totalPrompts === 0 || brandInfoWithLogos.length === 0) return 0;
+  
+  // Calculate response rates for all brands
+  const allRates = brandInfoWithLogos.map(b => {
+    let totalMentions = 0;
+    if (b.mention_breakdown) {
+      Object.values(b.mention_breakdown).forEach((count: number) => {
+        totalMentions += count;
+      });
+    }
+    return {
+      brand: b.brand,
+      rate: totalPrompts > 0 ? (totalMentions / totalPrompts) * 100 : 0
+    };
+  });
+  
+  // Find brand's rate
+  const brandRate = allRates.find(b => b.brand === brandName)?.rate || 0;
+  
+  // Count how many brands have lower rates
+  const brandsWithLowerRate = allRates.filter(b => b.rate < brandRate).length;
+  
+  // Calculate percentile: (brands with lower rate / total brands) * 100
+  const percentile = Math.round((brandsWithLowerRate / brandInfoWithLogos.length) * 100);
+  
+  return percentile;
 };
 
 // Get all brands with their mention counts and calculated tiers

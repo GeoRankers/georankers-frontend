@@ -17,24 +17,22 @@ const navItems: Array<{
   { label: "Overview", tab: "overview" },
   { label: "Executive Summary", tab: "executive-summary" },
   {
-    label: "Performance Hub",
+    label: "Performance Insights",
     tab: "prompts",
     dropdown: [
       { label: "Prompts", tab: "prompts" },
       { label: "Sources", tab: "sources-all" },
       { label: "Competitor Analysis", tab: "competitors-comparisons" },
-      { label: "Brand Sentiment", tab: "brand-sentiment" },
-      { label: "Recommendations", tab: "recommendations" },
+      { label: "Content Impact Analysis", tab: "competitors-comparisons", disabled: true},
     ],
   },
-  // {
-  //   label: "Content Hub",
-  //   tab: "",
-  //   comingSoon: true,
-  //   dropdown: [
-  //     { label: "Content Hub", tab: "overview", disabled: true },
-  //   ],
-  // },
+  {
+    label: "Action Center",
+    tab: "recommendations",
+    dropdown: [
+      { label: "Recommendations", tab: "recommendations"},
+    ],
+  },
 ];
 
 export const Navigation = () => {

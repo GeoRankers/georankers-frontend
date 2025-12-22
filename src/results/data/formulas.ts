@@ -21,6 +21,16 @@ export const TOOLTIP_CONTENT = {
       low: "< 40 percentile"
     }
   },
+  brandMentionScore: {
+    description: "Percentage of AI responses where the brand appeared out of total AI prompts.",
+    formula: "Brand Mention Score % = (sum of mention_breakdown values / total prompts) × 100",
+    explanation: "For example, if there are 10 AI prompts and the brand appeared in 5 of them, the score is 50%.",
+    calculation: {
+      step1: "Count total prompts from search_keywords (sum of all prompts arrays)",
+      step2: "Sum mention_breakdown values for the brand (shows prompts where brand appeared per keyword)",
+      step3: "Calculate: (total_mentions / total_prompts) × 100, capped at 100%"
+    }
+  },
   sentimentAnalysis: {
     description: "Overall sentiment tone of your brand mentions across AI platforms.",
     explanation: "Analyzes the context and tone in which your brand is mentioned."
@@ -48,6 +58,27 @@ export const getTierFromPercentile = (percentile: number): string => {
   if (percentile >= 70) return "High";
   if (percentile >= 40) return "Medium";
   return "Low";
+};
+
+/**
+ * Calculate Brand Mention Score percentage
+ * Formula: (sum of mention_breakdown values / total prompts) × 100
+ * 
+ * @param mentionBreakdown - Object with keyword IDs as keys and mention counts as values
+ * @param totalPrompts - Total number of AI prompts across all keywords
+ * @returns Percentage (0-100) of AI responses where the brand appeared
+ */
+export const calculateBrandMentionScore = (
+  mentionBreakdown: Record<string, number> | null,
+  totalPrompts: number
+): number => {
+  if (!mentionBreakdown || totalPrompts <= 0) return 0;
+  
+  // Sum all values in mention_breakdown to get total prompts where brand appeared
+  const totalMentions = Object.values(mentionBreakdown).reduce((sum, count) => sum + count, 0);
+  
+  // Calculate percentage, capped at 100%
+  return Math.min(Math.round((totalMentions / totalPrompts) * 100), 100);
 };
 
 /**
