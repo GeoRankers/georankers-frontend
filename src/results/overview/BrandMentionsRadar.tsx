@@ -2,6 +2,7 @@ import { RadarChart, PolarGrid, PolarAngleAxis, PolarRadiusAxis, Radar, Responsi
 import { getKeywords, getBrandName, getCompetitorData } from "@/results/data/analyticsData";
 import { Target, ChevronDown } from "lucide-react";
 import { useState, useMemo } from "react";
+import { toOrdinal } from "@/results/data/formulas";
 
 const COLORS = [
   'hsl(217, 91%, 60%)', // primary blue
@@ -58,7 +59,7 @@ export const BrandMentionsRadar = () => {
         return `${brandName} leads with ${brandScore} total mentions across all keywords`;
       } else {
         const gap = topCompetitor.score - brandScore;
-        return `${brandName} ranks #${brandRank} with ${brandScore} mentions, ${gap} behind ${topCompetitor.brand}`;
+        return `${brandName} ranks ${toOrdinal(brandRank)} with ${brandScore} mentions, ${gap} behind ${topCompetitor.brand}`;
       }
     } else {
       // Specific keyword insight
@@ -67,7 +68,7 @@ export const BrandMentionsRadar = () => {
       } else if (brandScore === 0) {
         return `${brandName} has no mentions for "${selectedKeyword}" - opportunity to improve`;
       } else {
-        return `${brandName} ranks #${brandRank} for "${selectedKeyword}" with ${brandScore} mentions`;
+        return `${brandName} ranks ${toOrdinal(brandRank)} for "${selectedKeyword}" with ${brandScore} mentions`;
       }
     }
   }, [chartData, brandName, selectedKeyword]);
