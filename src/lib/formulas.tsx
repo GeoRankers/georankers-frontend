@@ -10,8 +10,8 @@ export const TOOLTIP_CONTENT = {
   },
   aiVisibility: {
     description: "Measures how prominently your brand appears in AI-generated responses using percentile ranking.",
-    formula: "Percentile = (Brands with lower GEO score / Total brands) × 100",
-    calculation: "GEO score is calculated, then ranked against all competitors to derive percentile position.",
+    formula: "Percentile = (Brands with lower AI Visibility Score / Total brands) × 100",
+    calculation: "AI Visibility Score is calculated, then ranked against all competitors to derive percentile position.",
     tiers: {
       high: "≥ 80 percentile",
       medium: "40-79 percentile", 

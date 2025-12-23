@@ -41,13 +41,43 @@ export const BrandMentionsRadar = () => {
   }, [allBrands, competitorData, selectedKeyword, keywords]);
 
   const maxScore = Math.max(...chartData.map(d => d.score), 1);
+  
+  // Generate dynamic insight
+  const insight = useMemo(() => {
+    const brandData = chartData.find(d => d.brand === brandName);
+    if (!brandData) return `${brandName} performance overview`;
+    
+    const brandScore = brandData.score;
+    const sortedData = [...chartData].sort((a, b) => b.score - a.score);
+    const brandRank = sortedData.findIndex(d => d.brand === brandName) + 1;
+    const topCompetitor = sortedData[0];
+    
+    if (selectedKeyword === 'all') {
+      // All keywords insight
+      if (brandRank === 1) {
+        return `${brandName} leads with ${brandScore} total mentions across all keywords`;
+      } else {
+        const gap = topCompetitor.score - brandScore;
+        return `${brandName} ranks #${brandRank} with ${brandScore} mentions, ${gap} behind ${topCompetitor.brand}`;
+      }
+    } else {
+      // Specific keyword insight
+      if (brandRank === 1) {
+        return `${brandName} dominates "${selectedKeyword}" with ${brandScore} mentions`;
+      } else if (brandScore === 0) {
+        return `${brandName} has no mentions for "${selectedKeyword}" - opportunity to improve`;
+      } else {
+        return `${brandName} ranks #${brandRank} for "${selectedKeyword}" with ${brandScore} mentions`;
+      }
+    }
+  }, [chartData, brandName, selectedKeyword]);
 
   return (
     <div className="bg-card rounded-xl border border-border p-4 md:p-6 overflow-hidden">
       <div className="flex items-center justify-between mb-1">
         <div className="flex items-center gap-2">
           <Target className="w-5 h-5 text-primary" />
-          <h3 className="text-lg font-semibold text-foreground">Keyword Coverage</h3>
+          <h3 className="text-lg font-semibold text-foreground">Mention Distribution</h3>
         </div>
         {/* Keyword Selector Dropdown */}
         <div className="relative">
@@ -88,8 +118,8 @@ export const BrandMentionsRadar = () => {
       </div>
       <p className="text-xs text-muted-foreground mb-4">
         {selectedKeyword === 'all' 
-          ? 'Mention count across all keywords' 
-          : `Mention count for "${selectedKeyword}"`}
+          ? 'Who dominates mentions across the keywords' 
+          : `Brand mention for "${selectedKeyword}"`}
       </p>
       
       <div className="h-[280px]">
@@ -134,15 +164,17 @@ export const BrandMentionsRadar = () => {
                 border: '1px solid hsl(220, 13%, 91%)',
                 borderRadius: '8px',
               }}
-              formatter={(value: number) => [value, 'Score']}
+              formatter={(value: number) => [value, 'Mentions']}
             />
           </RadarChart>
         </ResponsiveContainer>
       </div>
       
-      {/* Brand indicator */}
-      <div className="flex items-center justify-center gap-6 mt-2 pt-2 border-t border-border">
-        <span className="text-xs text-primary font-medium">{brandName} highlighted</span>
+      {/* Dynamic insight - bold and meaningful */}
+      <div className="flex items-center justify-center mt-2 pt-2 border-t border-border">
+        <p className="text-sm text-center text-foreground px-4">
+          {insight}
+        </p>
       </div>
     </div>
   );

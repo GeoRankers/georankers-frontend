@@ -1,6 +1,6 @@
-import React from 'react';
-import { getTierBadgeClasses } from '@/results/data/formulas';
-import { cn } from '@/lib/utils';
+import React from "react";
+import { getTierColorVar } from "@/results/data/formulas";
+import { cn } from "@/lib/utils";
 
 interface TierBadgeProps {
   tier: string;
@@ -9,11 +9,15 @@ interface TierBadgeProps {
 
 export const TierBadge: React.FC<TierBadgeProps> = ({ tier, className }) => {
   return (
-    <span className={cn(
-      "inline-flex items-center px-2.5 py-0.5 rounded text-xs font-medium",
-      getTierBadgeClasses(tier),
-      className
-    )}>
+    <span
+      className={cn(
+        "inline-flex items-center rounded font-medium",
+        "bg-[var(--tier-color)] text-white",
+        "px-2.5 py-0.5 text-xs",
+        getTierColorVar(tier),
+        className
+      )}
+    >
       {tier}
     </span>
   );

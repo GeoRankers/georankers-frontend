@@ -1,10 +1,9 @@
 import { useResults } from "@/results/context/ResultsContext";
-import { useEffect, useState } from "react";
+import { useEffect, useState, useMemo } from "react";
 import {
   getAIVisibilityMetrics,
   getMentionsPosition,
   getBrandMentionResponseRates,
-  getBrandMentionPercentile,
   getSentiment,
   hasAnalyticsData,
 } from "@/results/data/analyticsData";
@@ -14,6 +13,7 @@ import { CompetitorComparisonChart } from "@/results/overview/CompetitorComparis
 import { BrandMentionsRadar } from "@/results/overview/BrandMentionsRadar";
 import BrandInfoBar from "@/results/overview/BrandInfoBar";
 import { TierBadge } from "@/results/ui/TierBadge";
+import { toOrdinal } from "@/results/data/formulas";
 import {
   Info,
   TrendingUp,
@@ -44,7 +44,52 @@ const OverviewContent = () => {
     }
   }, [dataReady]);
 
-  if (!dataReady || !hasAnalyticsData()) {
+  // IMPORTANT: keep hooks order stable across renders.
+  // Compute derived values unconditionally, with safe fallbacks.
+  const analyticsAvailable = hasAnalyticsData();
+
+  const visibilityData = useMemo(() => getAIVisibilityMetrics(), [analyticsAvailable]);
+  const mentionsData = useMemo(() => getMentionsPosition(), [analyticsAvailable]);
+  const brandMentionRates = useMemo(
+    () => getBrandMentionResponseRates(),
+    [analyticsAvailable]
+  );
+  const sentiment = useMemo(() => getSentiment(), [analyticsAvailable]);
+
+  const getMedalIcon = (index: number, isTestBrand: boolean) => {
+    if (index === 0) return <Trophy className="w-4 h-4 text-yellow-500" />;
+    if (index === 1) return <Medal className="w-4 h-4 text-gray-400" />;
+    if (isTestBrand) return <Award className="w-4 h-4 text-primary" />;
+    return <Award className="w-4 h-4 text-amber-600" />;
+  };
+
+  const mentionsInsight = useMemo(() => {
+    const { position, totalBrands } = mentionsData;
+
+    if (!position || position <= 0) return null;
+
+    if (position === 1) {
+      return `Your brand is leading in brand mention score among ${totalBrands} brands.`;
+    }
+
+    return `Your brand ranked at ${toOrdinal(position)} position out of ${totalBrands} brands.`;
+  }, [mentionsData]);
+
+  const visibilityInsight = useMemo(() => {
+    const { brandPosition, totalBrands } = visibilityData;
+
+    if (!brandPosition || brandPosition <= 0) return null;
+
+    if (brandPosition === 1) {
+      return `Your brand is leading in AI search visibility score among ${totalBrands} brands.`;
+    }
+
+    return `Your brand ranked at ${toOrdinal(
+      brandPosition
+    )} position out of ${totalBrands} brands.`;
+  }, [visibilityData]);
+
+  if (!dataReady || !analyticsAvailable) {
     return (
       <div className="container mx-auto px-4 py-20">
         <div className="flex items-center justify-center min-h-64">
@@ -59,19 +104,6 @@ const OverviewContent = () => {
       </div>
     );
   }
-
-  const visibilityData = getAIVisibilityMetrics();
-  const mentionsData = getMentionsPosition();
-  const brandMentionRates = getBrandMentionResponseRates();
-  const brandMentionPercentile = getBrandMentionPercentile();
-  const sentiment = getSentiment();
-
-  const getMedalIcon = (index: number, isTestBrand: boolean) => {
-    if (index === 0) return <Trophy className="w-4 h-4 text-yellow-500" />;
-    if (index === 1) return <Medal className="w-4 h-4 text-gray-400" />;
-    if (isTestBrand) return <Award className="w-4 h-4 text-primary" />;
-    return <Award className="w-4 h-4 text-amber-600" />;
-  };
 
   return (
     <div className="w-full max-w-full overflow-x-hidden p-4 md:p-6">
@@ -122,7 +154,7 @@ const OverviewContent = () => {
               </div>
             </div>
 
-            {/* Position Breakdown */}
+            {/* Position Breakdown - Updated with correct data */}
             <div className="space-y-2">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -138,7 +170,8 @@ const OverviewContent = () => {
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
                   <p className="text-sm">
-                    Percentage of queries where your brand ranked #1.
+                    Percentage of queries where your brand ranked 1 across
+                    Gemini and OpenAI.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -159,7 +192,8 @@ const OverviewContent = () => {
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
                   <p className="text-sm">
-                    Percentage of queries where your brand ranked 2nd to 4th.
+                    Percentage of queries where your brand ranked 2nd to 4th
+                    across Gemini and OpenAI.
                   </p>
                 </TooltipContent>
               </Tooltip>
@@ -178,15 +212,18 @@ const OverviewContent = () => {
                 </TooltipTrigger>
                 <TooltipContent side="right" className="max-w-xs">
                   <p className="text-sm">
-                    Percentage of queries where your brand ranked 5th or lower.
+                    Percentage of queries where your brand ranked 5th or lower
+                    across Gemini and OpenAI.
                   </p>
                 </TooltipContent>
               </Tooltip>
             </div>
 
-            <p className="text-sm text-foreground bold border-t pt-3 mt-4">
-              Your visibility score is at position {visibilityData.brandPosition} out of {visibilityData.totalBrands} brands tested for these queries.
-            </p>
+            {visibilityData.brandPosition > 0 && (
+              <p className="text-sm text-foreground font-medium border-t pt-3 mt-4">
+                {visibilityInsight}
+              </p>
+            )}
           </div>
 
           {/* Brand Mention Score Card */}
@@ -259,13 +296,9 @@ const OverviewContent = () => {
               })}
             </div>
 
-            <p className="text-sm text-foreground bold border-t border-border pt-3 mt-4">
-              Your brand mention score is at position {mentionsData.position} out of {mentionsData.totalBrands} brands for these queries.
-            </p>
-            
-            {brandMentionPercentile > 0 && (
-              <p className="text-xs text-muted-foreground italic mt-2">
-                You are ahead of {brandMentionPercentile}% of brands for these queries.
+            {mentionsInsight && (
+              <p className="text-sm text-foreground font-medium border-t pt-3 mt-4">
+                {mentionsInsight}
               </p>
             )}
           </div>
@@ -300,7 +333,6 @@ const OverviewContent = () => {
           <LLMVisibilityTable />
           <PlatformPresence />
         </div>
-
       </div>
     </div>
   );

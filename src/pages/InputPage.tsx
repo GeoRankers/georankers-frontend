@@ -202,6 +202,11 @@ export default function InputPage() {
 
     setIsLoading(true);
 
+    // Set lock for analysis in progress - used by Header to disable buttons
+    const ANALYSIS_LOCK_KEY = "new_results_analysis_action_lock";
+    const analysisTriggeredAt = Date.now();
+    localStorage.setItem(ANALYSIS_LOCK_KEY, String(analysisTriggeredAt));
+
     try {
       const trimmedBrand = brand.trim();
       
@@ -232,6 +237,8 @@ export default function InputPage() {
               website: trimmedBrand,
               keywords,
               productId: productId,
+              analysisTriggeredAt: analysisTriggeredAt,
+              isNew: true,
             },
           });
 
@@ -271,6 +278,8 @@ export default function InputPage() {
               website: trimmedBrand,
               keywords,
               productId: data.product?.id,
+              analysisTriggeredAt: analysisTriggeredAt,
+              isNew: true,
             },
           });
 

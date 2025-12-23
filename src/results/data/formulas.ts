@@ -61,45 +61,27 @@ export const getTierFromPercentile = (percentile: number): string => {
 };
 
 /**
- * Calculate Brand Mention Score percentage
- * Formula: (sum of mention_breakdown values / total prompts) × 100
- * 
- * @param mentionBreakdown - Object with keyword IDs as keys and mention counts as values
- * @param totalPrompts - Total number of AI prompts across all keywords
- * @returns Percentage (0-100) of AI responses where the brand appeared
+ * Get tier color CSS variable only
  */
-export const calculateBrandMentionScore = (
-  mentionBreakdown: Record<string, number> | null,
-  totalPrompts: number
-): number => {
-  if (!mentionBreakdown || totalPrompts <= 0) return 0;
-  
-  // Sum all values in mention_breakdown to get total prompts where brand appeared
-  const totalMentions = Object.values(mentionBreakdown).reduce((sum, count) => sum + count, 0);
-  
-  // Calculate percentage, capped at 100%
-  return Math.min(Math.round((totalMentions / totalPrompts) * 100), 100);
-};
-
-/**
- * Get tier color classes for solid badges
- */
-export const getTierBadgeClasses = (tier: string): string => {
+export const getTierColorVar = (tier: string): string => {
   switch (tier?.toLowerCase()) {
     case 'high':
     case 'positive':
     case 'yes':
-      return 'bg-green-500 text-white';
+      return '[--tier-color:theme(colors.green.500)]';
+
     case 'medium':
     case 'neutral':
-      return 'bg-amber-500 text-white';
+      return '[--tier-color:theme(colors.amber.500)]';
+
     case 'low':
     case 'negative':
     case 'no':
     case 'absent':
-      return 'bg-red-500 text-white';
+      return '[--tier-color:theme(colors.red.500)]';
+
     default:
-      return 'bg-muted text-muted-foreground';
+      return '[--tier-color:theme(colors.blue.500)]';
   }
 };
 
@@ -120,3 +102,24 @@ export const getGaugeGradientId = (percentile: number): string => {
   if (percentile >= 40) return 'gaugeAmber';
   return 'gaugeRed';
 };
+
+export function toOrdinal(n) {
+  if (typeof n !== "number") return n;
+
+  const mod100 = n % 100;
+
+  if (mod100 >= 11 && mod100 <= 13) {
+    return `${n}th`;
+  }
+
+  switch (n % 10) {
+    case 1:
+      return `${n}st`;
+    case 2:
+      return `${n}nd`;
+    case 3:
+      return `${n}rd`;
+    default:
+      return `${n}th`;
+  }
+}

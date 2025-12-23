@@ -1,3 +1,4 @@
+import { getTierColorVar, toOrdinal } from "@/results/data/formulas";
 import { TierBadge } from "@/results/ui/TierBadge";
 import {
   getExecutiveSummary,
@@ -17,6 +18,7 @@ import {
   ArrowDown,
   Sparkles,
 } from "lucide-react";
+import { cn } from "@/lib/utils";
 
 const ExecutiveSummaryContent = () => {
   const visibilityData = getAIVisibilityMetrics();
@@ -53,31 +55,40 @@ const ExecutiveSummaryContent = () => {
               <h2 className="text-base md:text-lg font-semibold text-foreground">
                 Overall Assessment
               </h2>
-              <p className="text-xs md:text-sm text-muted-foreground truncate">
-                {executiveSummary.brand_score_and_tier}
-              </p>
             </div>
           </div>
           <p className="text-sm md:text-base text-muted-foreground leading-relaxed">
+            {executiveSummary.brand_score_and_tier}
             {executiveSummary.conclusion}
           </p>
         </div>
 
         {/* Quick Stats */}
-        <div className="bg-gradient-to-br from-primary/10 to-primary/5 rounded-xl border border-primary/20 p-4 md:p-6 flex flex-col items-center justify-center">
-          <div className="text-4xl md:text-5xl font-bold text-primary mb-1 md:mb-2">
+        <div
+          className={cn(
+            "rounded-xl border p-4 md:p-6 flex flex-col items-center justify-center",
+            getTierColorVar(visibilityData.tier),
+            "bg-[color-mix(in_srgb,var(--tier-color)_10%,transparent)]",
+            "border-[color-mix(in_srgb,var(--tier-color)_20%,transparent)]"
+          )}
+        >
+          {/* Score */}
+          <div className="text-4xl md:text-5xl font-bold text-[var(--tier-color)] mb-1 md:mb-2">
             {visibilityData.score}
           </div>
+
           <div className="text-xs md:text-sm text-muted-foreground mb-2 md:mb-3">
-            GEO Score
+            AI Visibility Score
           </div>
+
           <TierBadge
             tier={visibilityData.tier}
             className="text-sm md:text-lg px-3 py-1.5 md:px-4 md:py-2"
           />
+
           <p className="text-[10px] md:text-xs text-muted-foreground mt-2 md:mt-3 text-center">
-            Position {visibilityData.brandPosition} of{" "}
-            {visibilityData.totalBrands} brands
+            Your brand ranked {toOrdinal(visibilityData.brandPosition)} out of{" "}
+            {visibilityData.totalBrands} brands in AI visibility score.
           </p>
         </div>
       </div>

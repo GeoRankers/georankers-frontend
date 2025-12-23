@@ -1,5 +1,5 @@
 import { useNavigate, useLocation, Link } from "react-router-dom";
-import { Menu, X, User, LogOut, RefreshCw, Plus, Loader2, FileDown } from "lucide-react";
+import { Menu, X, User, LogOut, RefreshCw, Plus, Loader2, FileDown, FileText, Globe, Database, Sparkles, Brain } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
@@ -30,29 +30,79 @@ import {
 } from '@/results/data/analyticsData';
 
 const mobileNavItems = [
-  { label: "Overview", path: "/newresults", tab: "overview" as TabType },
+  { label: "Overview", path: "/results", tab: "overview" as TabType },
   {
     label: "Executive Summary",
-    path: "/newresults/executive-summary",
+    path: "/results/executive-summary",
     tab: "executive-summary" as TabType,
   },
-  { label: "Prompts", path: "/newresults/prompts", tab: "prompts" as TabType },
+  { label: "Prompts", path: "/results/prompts", tab: "prompts" as TabType },
   {
     label: "Sources",
-    path: "/newresults/sources-all",
+    path: "/results/sources-all",
     tab: "sources-all" as TabType,
   },
   {
     label: "Competitors",
-    path: "/newresults/competitors-comparisons",
+    path: "/results/competitors-comparisons",
     tab: "competitors-comparisons" as TabType,
   },
   {
     label: "Recommendations",
-    path: "/newresults/recommendations",
+    path: "/results/recommendations",
     tab: "recommendations" as TabType,
   },
 ];
+
+// Analysis Animation Component
+const AnalyzingAnimation = () => {
+  const [currentStep, setCurrentStep] = useState(0);
+  
+  const steps = [
+    { icon: FileText, text: "Gathering", color: "text-blue-500" },
+    { icon: Globe, text: "Searching", color: "text-green-500" },
+    { icon: Database, text: "Processing", color: "text-purple-500" },
+    { icon: Brain, text: "ChatGPT", color: "text-emerald-500" },
+    { icon: Sparkles, text: "Gemini", color: "text-amber-500" },
+    { icon: Brain, text: "Analyzing", color: "text-pink-500" },
+  ];
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setCurrentStep((prev) => (prev + 1) % steps.length);
+    }, 1500);
+    return () => clearInterval(interval);
+  }, []);
+
+  const CurrentIcon = steps[currentStep].icon;
+
+  return (
+    <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-gradient-to-r from-primary/10 via-purple-500/10 to-amber-500/10 border border-primary/20">
+      <div className="relative w-5 h-5 flex items-center justify-center">
+        <div className="absolute inset-0 animate-ping opacity-75">
+          <CurrentIcon className={cn("w-5 h-5", steps[currentStep].color)} />
+        </div>
+        <CurrentIcon className={cn("w-5 h-5 relative z-10", steps[currentStep].color)} />
+      </div>
+      <div className="flex flex-col">
+        <span className={cn("text-xs font-semibold transition-all duration-300", steps[currentStep].color)}>
+          {steps[currentStep].text}
+        </span>
+        <div className="flex gap-0.5 mt-0.5">
+          {steps.map((_, idx) => (
+            <div
+              key={idx}
+              className={cn(
+                "h-0.5 w-3 rounded-full transition-all duration-300",
+                idx === currentStep ? "bg-primary" : "bg-muted"
+              )}
+            />
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // Type definitions for print data
 interface SourceMention {
@@ -247,7 +297,7 @@ const PrintableContent = ({
         
         <div style={{ display: 'flex', gap: '40px', marginBottom: '24px' }}>
           <div style={sectionStyle}>
-            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#444' }}>GEO Score</h3>
+            <h3 style={{ fontSize: '18px', fontWeight: '600', marginBottom: '8px', color: '#444' }}>AI Visibility Score</h3>
             <p style={{ fontSize: '32px', fontWeight: 'bold', color: '#2563eb' }}>{aiVisibility?.score || 0}</p>
             <p style={{ fontSize: '14px', color: '#666' }}>Tier: {aiVisibility?.tier || 'N/A'}</p>
             <p style={{ fontSize: '14px', color: '#666' }}>Position: {aiVisibility?.brandPosition || 0} of {aiVisibility?.totalBrands || 0} brands</p>
@@ -271,8 +321,8 @@ const PrintableContent = ({
             <thead>
               <tr>
                 <th style={tableHeaderStyle}>Brand</th>
-                <th style={tableHeaderStyle}>GEO Score</th>
-                <th style={tableHeaderStyle}>GEO Tier</th>
+                <th style={tableHeaderStyle}>AI Visibility Score</th>
+                <th style={tableHeaderStyle}>AI Visibility Tier</th>
                 <th style={tableHeaderStyle}>Mention Score</th>
                 <th style={tableHeaderStyle}>Mention Count</th>
                 <th style={tableHeaderStyle}>Outlook</th>
@@ -463,15 +513,46 @@ export const Header = () => {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [productId, setProductId] = useState<string | null>(null);
+  const [analysisActionLocked, setAnalysisActionLocked] = useState(false);
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, products } = useAuth();
   const { toast } = useToast();
-  const { setActiveTab, isLoading, dataReady } = useResults();
+  const { setActiveTab, isLoading, dataReady, isNewAnalysis } = useResults();
   const { toggleSidebar } = useSidebar();
 
-  // Analysis is in progress if loading and no data ready yet
-  const isAnalysisInProgress = isLoading && !dataReady;
+  const ANALYSIS_LOCK_KEY = "new_results_analysis_action_lock";
+
+  // Analysis is in progress if loading and no data ready yet, OR if new analysis was triggered
+  const isAnalysisInProgress = (isLoading && !dataReady) || isNewAnalysis;
+
+  // Restore lock (keeps buttons disabled after triggering new analysis until fresh data is ready)
+  useEffect(() => {
+    try {
+      const lock = localStorage.getItem(ANALYSIS_LOCK_KEY);
+      if (lock) {
+        console.log("🔒 [HEADER] Analysis lock found - disabling actions");
+        setAnalysisActionLocked(true);
+      }
+    } catch {
+      // ignore
+    }
+  }, [location]);
+
+  // Clear lock once new data is ready
+  useEffect(() => {
+    if (dataReady && !isLoading) {
+      setAnalysisActionLocked(false);
+      setIsRegenerating(false);
+      try {
+        localStorage.removeItem(ANALYSIS_LOCK_KEY);
+      } catch {
+        // ignore
+      }
+    }
+  }, [dataReady, isLoading]);
+
+  const actionsDisabled = isAnalysisInProgress || isRegenerating || analysisActionLocked;
 
   useEffect(() => {
     const storedProductId = localStorage.getItem("product_id");
@@ -496,6 +577,8 @@ export const Header = () => {
   };
 
   const handleNewAnalysis = () => {
+    if (actionsDisabled) return;
+
     const currentWebsite = products?.[0]?.website || "";
     const currentProductId = products?.[0]?.id || productId || "";
 
@@ -511,8 +594,16 @@ export const Header = () => {
 
   const handleRegenerateAnalysis = async () => {
     if (!productId) return;
+    if (actionsDisabled) return;
 
     setIsRegenerating(true);
+    setAnalysisActionLocked(true);
+    try {
+      localStorage.setItem(ANALYSIS_LOCK_KEY, String(Date.now()));
+    } catch {
+      // ignore
+    }
+
     try {
       const accessToken = localStorage.getItem("access_token") || "";
       await regenerateAnalysis(productId, accessToken);
@@ -524,17 +615,21 @@ export const Header = () => {
         duration: 10000,
       });
 
-      setTimeout(() => {
-        window.location.reload();
-      }, 20000);
+      // NOTE: keep locked until dataReady becomes true
     } catch (error) {
       toast({
         title: "Error",
         description: "Failed to regenerate analysis. Please try again.",
         variant: "destructive",
       });
-    } finally {
+
       setIsRegenerating(false);
+      setAnalysisActionLocked(false);
+      try {
+        localStorage.removeItem(ANALYSIS_LOCK_KEY);
+      } catch {
+        // ignore
+      }
     }
   };
 
@@ -701,27 +796,26 @@ export const Header = () => {
             </Link>
           </div>
 
-          <div className="flex items-center gap-1.5 md:gap-4">
-            {/* Analysis in Progress Indicator */}
-            {isAnalysisInProgress && (
-              <div className="hidden sm:flex items-center gap-1.5 text-amber-500 text-xs md:text-sm">
-                <Loader2 className="w-3 h-3 md:w-4 md:h-4 animate-spin" />
-                <span>Analysis being generated</span>
+          <div className="flex items-center gap-1.5 md:gap-3">
+            {/* Analysis in Progress Animation - beside New Analysis button */}
+            {(isAnalysisInProgress || isRegenerating || analysisActionLocked) && (
+              <div className="hidden sm:flex">
+                <AnalyzingAnimation />
               </div>
             )}
-
+            
             {/* New Analysis Button */}
             <Button
               variant="outline"
               size="sm"
               className={cn(
                 "text-[10px] md:text-sm px-2 py-1 md:px-4 md:py-2 gap-1 h-7 md:h-9",
-                isAnalysisInProgress || isRegenerating
+                actionsDisabled
                   ? "bg-muted text-muted-foreground cursor-not-allowed opacity-60"
                   : "bg-primary text-primary-foreground hover:bg-primary/90 hover:text-primary-foreground"
               )}
               onClick={handleNewAnalysis}
-              disabled={isAnalysisInProgress || isRegenerating}
+              disabled={actionsDisabled}
             >
               <Plus className="w-3 h-3 md:w-4 md:h-4" />
               <span className="hidden sm:inline">New Analysis</span>
@@ -753,16 +847,14 @@ export const Header = () => {
                     <>
                       <DropdownMenuItem
                         onClick={handleRegenerateAnalysis}
-                        disabled={isRegenerating || isAnalysisInProgress}
+                        disabled={actionsDisabled}
                         className={cn(
                           "flex items-center space-x-2",
-                          (isRegenerating || isAnalysisInProgress) && "opacity-60 cursor-not-allowed"
+                          actionsDisabled && "opacity-60 cursor-not-allowed"
                         )}
                       >
                         <RefreshCw
-                          className={`w-4 h-4 ${
-                            isRegenerating ? "animate-spin" : ""
-                          }`}
+                          className={cn("w-4 h-4", isRegenerating && "animate-spin")}
                         />
                         <span>Regenerate Analysis</span>
                       </DropdownMenuItem>
@@ -854,7 +946,7 @@ export const Header = () => {
             </button>
           ))}
           <div className="px-3 py-2.5 text-sm text-muted-foreground">
-            <span className="font-medium">Content Hub</span>
+            <span className="font-medium">Content Impact Analysis</span>
             <span className="ml-2 text-xs bg-muted px-2 py-0.5 rounded">
               Coming Soon
             </span>

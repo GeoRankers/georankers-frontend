@@ -32,6 +32,7 @@ interface ResultsContextType {
   dataReady: boolean;
   activeTab: TabType;
   setActiveTab: (tab: TabType) => void;
+  isNewAnalysis: boolean;
 }
 
 const ResultsContext = createContext<ResultsContextType | null>(null);
@@ -55,6 +56,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [dataReady, setDataReady] = useState<boolean>(false);
   const [activeTab, setActiveTabState] = useState<TabType>("overview");
+  const [isNewAnalysis, setIsNewAnalysis] = useState<boolean>(false);
 
   const { products } = useAuth();
   const { toast } = useToast();
@@ -63,11 +65,11 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
 
   // Map URL paths to tab types
   const pathToTab: Record<string, TabType> = {
-    "/newresults": "overview",
-    "/newresults/executive-summary": "executive-summary",
-    "/newresults/prompts": "prompts",
-    "/newresults/sources-all": "sources-all",
-    "/newresults/competitors-comparisons": "competitors-comparisons",
+    "/results": "overview",
+    "/results/executive-summary": "executive-summary",
+    "/results/prompts": "prompts",
+    "/results/sources-all": "sources-all",
+    "/results/competitors-comparisons": "competitors-comparisons",
 
   };
 
@@ -84,12 +86,12 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
   const setActiveTab = (tab: TabType) => {
     setActiveTabState(tab);
     const tabToPath: Record<TabType, string> = {
-      "overview": "/newresults",
-      "executive-summary": "/newresults/executive-summary",
-      "prompts": "/newresults/prompts",
-      "sources-all": "/newresults/sources-all",
-      "competitors-comparisons": "/newresults/competitors-comparisons",
-      "recommendations": "/newresults/recommendations",
+      "overview": "/results",
+      "executive-summary": "/results/executive-summary",
+      "prompts": "/results/prompts",
+      "sources-all": "/results/sources-all",
+      "competitors-comparisons": "/results/competitors-comparisons",
+      "recommendations": "/results/recommendations",
     };
     const targetPath = tabToPath[tab];
     if (targetPath && location.pathname !== targetPath) {
@@ -329,16 +331,17 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
 
             // Check if this analysis is newer than when we triggered a new analysis
             const analysisTimestamp = currentDate ? new Date(currentDate).getTime() : 0;
-            const isNewAnalysis = !analysisTriggeredAtRef.current || analysisTimestamp > analysisTriggeredAtRef.current;
+            const isNewerAnalysis = !analysisTriggeredAtRef.current || analysisTimestamp > analysisTriggeredAtRef.current;
 
-            console.log(`📅 [POLL] Analysis date: ${currentDate}, Trigger time: ${analysisTriggeredAtRef.current ? new Date(analysisTriggeredAtRef.current).toISOString() : 'none'}, isNew: ${isNewAnalysis}`);
+            console.log(`📅 [POLL] Analysis date: ${currentDate}, Trigger time: ${analysisTriggeredAtRef.current ? new Date(analysisTriggeredAtRef.current).toISOString() : 'none'}, isNewer: ${isNewerAnalysis}`);
 
-            // COMPLETED or FAILED = STOP ONLY IF it's a NEW analysis
-            if ((currentStatus === "completed" || currentStatus === "failed") && isNewAnalysis) {
+            // COMPLETED or FAILED = STOP ONLY IF it's a NEWER analysis
+            if ((currentStatus === "completed" || currentStatus === "failed") && isNewerAnalysis) {
               hasReceivedDataRef.current = true;
               pollingAttemptsRef.current = 0;
               initialPollDoneRef.current = true;
               analysisTriggeredAtRef.current = null;
+              setIsNewAnalysis(false); // Clear the new analysis flag
 
               // Clear all timers immediately
               if (pollingTimerRef.current) {
@@ -381,7 +384,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
             }
 
             // OLD completed data found but waiting for NEW analysis - continue polling
-            if ((currentStatus === "completed" || currentStatus === "failed") && !isNewAnalysis) {
+            if ((currentStatus === "completed" || currentStatus === "failed") && !isNewerAnalysis) {
               console.log(`⏳ [POLL] Found OLD ${currentStatus} analysis - waiting for NEW analysis, continuing poll`);
               setCurrentAnalytics(mostRecentAnalysis);
               setIsLoading(true);
@@ -477,6 +480,18 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
       console.log("🔒 [STATE] No access token - redirecting to login");
       handleUnauthorized();
       return;
+    }
+
+    // If isNew flag is set, this is a fresh analysis - set loading state
+    if (state?.isNew || state?.analysisTriggeredAt) {
+      console.log("🆕 [STATE] New analysis detected - setting loading state and isNewAnalysis");
+      setIsLoading(true);
+      setDataReady(false);
+      setIsNewAnalysis(true);
+      hasReceivedDataRef.current = false;
+      hasFetchedRef.current = false;
+    } else {
+      setIsNewAnalysis(false);
     }
 
     if (state?.product?.id) {
@@ -622,6 +637,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
         dataReady,
         activeTab,
         setActiveTab,
+        isNewAnalysis,
       }}
     >
       {children}

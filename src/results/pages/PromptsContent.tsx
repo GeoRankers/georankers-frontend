@@ -1,6 +1,20 @@
-import { getAnalytics, getBrandName, getBrandInfoWithLogos, getSearchKeywordsWithPrompts } from "@/results/data/analyticsData";
-import { ChevronDown, ChevronRight, Search, Zap, MessageSquare } from "lucide-react";
+import {
+  getAnalytics,
+  getBrandName,
+  getBrandInfoWithLogos,
+  getSearchKeywordsWithPrompts,
+} from "@/results/data/analyticsData";
+import {
+  ChevronDown,
+  ChevronRight,
+  Search,
+  Zap,
+  MessageSquare,
+} from "lucide-react";
 import { useState } from "react";
+
+// Default empty data constants
+const DEFAULT_BRAND_MENTION = 0;
 
 const PromptsContent = () => {
   const brandName = getBrandName();
@@ -10,29 +24,30 @@ const PromptsContent = () => {
   const [searchQuery, setSearchQuery] = useState("");
 
   // Filter keywords based on search
-  const filteredKeywords = keywordsWithPrompts.filter(k => 
-    k.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    k.prompts.some(p => p.toLowerCase().includes(searchQuery.toLowerCase()))
+  const filteredKeywords = keywordsWithPrompts.filter(
+    (k) =>
+      k.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      k.prompts.some((p) => p.toLowerCase().includes(searchQuery.toLowerCase()))
   );
 
   const getBrandLogo = (name: string) => {
-    const brand = brandInfo.find(b => b.brand === name);
+    const brand = brandInfo.find((b) => b.brand === name);
     return brand?.logo;
   };
 
   // Get brand's mention breakdown for a keyword
   const getBrandScoreForKeyword = (keywordId: string) => {
-    const brand = brandInfo.find(b => b.brand === brandName);
-    return brand?.mention_breakdown?.[keywordId] || 0;
+    const brand = brandInfo.find((b) => b.brand === brandName);
+    return brand?.mention_breakdown?.[keywordId] || DEFAULT_BRAND_MENTION;
   };
 
   // Get top competitor for a keyword
   const getTopCompetitorForKeyword = (keywordId: string) => {
-    let topBrand = '';
+    let topBrand = "";
     let topScore = 0;
-    let topLogo = '';
-    
-    brandInfo.forEach(b => {
+    let topLogo = "";
+
+    brandInfo.forEach((b) => {
       const score = b.mention_breakdown?.[keywordId] || 0;
       if (score > topScore) {
         topScore = score;
@@ -40,12 +55,43 @@ const PromptsContent = () => {
         topLogo = b.logo;
       }
     });
-    
+
     return { brand: topBrand, score: topScore, logo: topLogo };
   };
 
   // Calculate total prompts
-  const totalPrompts = keywordsWithPrompts.reduce((acc, k) => acc + k.prompts.length, 0);
+  const totalPrompts = keywordsWithPrompts.reduce(
+    (acc, k) => acc + k.prompts.length,
+    0
+  );
+
+  // Get brands to display for a keyword - includes our brand even if score is 0
+  const getBrandsForKeyword = (keywordId: string) => {
+    // Get all brands with mentions > 0
+    const brandsWithMentions = brandInfo.filter(
+      (b) => (b.mention_breakdown?.[keywordId] || 0) > 0
+    );
+
+    // Check if our brand is in the list
+    const ourBrandInList = brandsWithMentions.some(
+      (b) => b.brand === brandName
+    );
+
+    // If our brand is not in the list, add it with 0 mentions
+    if (!ourBrandInList) {
+      const ourBrand = brandInfo.find((b) => b.brand === brandName);
+      if (ourBrand) {
+        brandsWithMentions.push(ourBrand);
+      }
+    }
+
+    // Sort by mentions (highest first)
+    return brandsWithMentions.sort(
+      (a, b) =>
+        (b.mention_breakdown?.[keywordId] || 0) -
+        (a.mention_breakdown?.[keywordId] || 0)
+    );
+  };
 
   return (
     <div className="p-3 md:p-6 space-y-4 md:space-y-6 w-full max-w-full overflow-x-hidden">
@@ -58,8 +104,30 @@ const PromptsContent = () => {
               <Zap className="w-5 h-5 md:w-6 md:h-6 text-primary" />
             </div>
             <div>
-              <h1 className="text-lg md:text-2xl font-bold text-foreground">Prompts & Keywords</h1>
-              <p className="text-xs md:text-sm text-muted-foreground">{keywordsWithPrompts.length} keywords, {totalPrompts} prompts analyzed</p>
+              <h1 className="text-xl md:text-2xl font-bold text-foreground">
+                AI Prompts & Query Analysis
+              </h1>
+              <p className="text-xs md:text-sm text-muted-foreground">
+                Exact questions AI is answering about your brand & industry
+              </p>
+            </div>
+          </div>
+          <div className="flex gap-10 justify-center">
+            <div className="text-center sm:text-center">
+              <div className="text-2xl md:text-3xl font-bold text-primary">
+                {keywordsWithPrompts.length}
+              </div>
+              <div className="text-[10px] md:text-xs text-muted-foreground">
+                keywords
+              </div>
+            </div>
+            <div className="text-center sm:text-center">
+              <div className="text-2xl md:text-3xl font-bold text-primary">
+                {totalPrompts}
+              </div>
+              <div className="text-[10px] md:text-xs text-muted-foreground">
+                prompts analyzed
+              </div>
             </div>
           </div>
         </div>
@@ -84,13 +152,19 @@ const PromptsContent = () => {
           const brandScore = getBrandScoreForKeyword(keyword.id);
           const topCompetitor = getTopCompetitorForKeyword(keyword.id);
           const promptCount = keyword.prompts.length;
+          const brandsToDisplay = getBrandsForKeyword(keyword.id);
 
           return (
-            <div key={keyword.id} className="bg-card rounded-xl border border-border overflow-hidden">
+            <div
+              key={keyword.id}
+              className="bg-card rounded-xl border border-border overflow-hidden"
+            >
               {/* Keyword Header */}
-              <div 
+              <div
                 className="p-4 md:p-5 flex items-center justify-between gap-3 cursor-pointer hover:bg-muted/30 transition-colors"
-                onClick={() => setExpandedKeyword(isExpanded ? null : keyword.id)}
+                onClick={() =>
+                  setExpandedKeyword(isExpanded ? null : keyword.id)
+                }
               >
                 <div className="flex items-center gap-3 flex-1 min-w-0">
                   {isExpanded ? (
@@ -99,37 +173,57 @@ const PromptsContent = () => {
                     <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0" />
                   )}
                   <div className="min-w-0">
-                    <span className="font-semibold text-foreground text-sm md:text-base block truncate">{keyword.name}</span>
-                    <span className="text-xs text-muted-foreground">{promptCount} prompts</span>
+                    <span className="font-semibold text-foreground text-sm md:text-base block truncate">
+                      {keyword.name}
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      {promptCount} prompts
+                    </span>
                   </div>
                 </div>
                 <div className="flex items-center gap-3 flex-shrink-0">
                   {/* Brand Score Badge */}
                   <div className="flex flex-col items-center">
-                    <span className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${
-                      brandScore >= 3 ? 'bg-green-500/20 text-green-500' :
-                      brandScore >= 1 ? 'bg-amber-500/20 text-amber-500' :
-                      'bg-muted text-muted-foreground'
-                    }`}>
+                    <span
+                      className={`inline-flex items-center justify-center w-10 h-10 rounded-full text-sm font-bold ${
+                        brandScore >= 3
+                          ? "bg-green-500/20 text-green-500"
+                          : brandScore >= 1
+                          ? "bg-amber-500/20 text-amber-500"
+                          : "bg-red-500/20 text-red-500"
+                      }`}
+                    >
                       {brandScore}
                     </span>
-                    <span className="text-[10px] text-muted-foreground mt-1">mentions</span>
+                    <span className="text-[10px] text-muted-foreground mt-1">
+                      mentions
+                    </span>
                   </div>
-                  
+
                   {/* Top Competitor */}
                   {topCompetitor.brand && (
                     <div className="hidden md:flex items-center gap-2 px-3 py-2 bg-muted/50 rounded-lg">
                       {topCompetitor.logo && (
-                        <img src={topCompetitor.logo} alt="" className="w-5 h-5 rounded-full object-contain bg-white" />
+                        <img
+                          src={topCompetitor.logo}
+                          alt=""
+                          className="w-5 h-5 rounded-full object-contain bg-white"
+                        />
                       )}
-                      <span className="text-xs text-muted-foreground">Top:</span>
-                      <span className="text-xs font-medium">{topCompetitor.brand}</span>
-                      <span className="text-xs font-bold text-primary">{topCompetitor.score}</span>
+                      <span className="text-xs text-muted-foreground">
+                        Top:
+                      </span>
+                      <span className="text-xs font-medium">
+                        {topCompetitor.brand}
+                      </span>
+                      <span className="text-xs font-bold text-primary">
+                        {topCompetitor.score}
+                      </span>
                     </div>
                   )}
                 </div>
               </div>
-              
+
               {/* Expanded Prompts List */}
               {isExpanded && (
                 <div className="border-t border-border/50 bg-muted/20">
@@ -140,53 +234,68 @@ const PromptsContent = () => {
                     </h4>
                     <div className="space-y-2">
                       {keyword.prompts.map((prompt, idx) => (
-                        <div 
-                          key={idx} 
+                        <div
+                          key={idx}
                           className="flex items-start gap-3 p-3 bg-card rounded-lg border border-border/50"
                         >
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-primary/10 text-primary text-xs font-semibold flex-shrink-0">
                             {idx + 1}
                           </span>
-                          <p className="text-sm text-foreground leading-relaxed">{prompt}</p>
+                          <p className="text-sm text-foreground leading-relaxed">
+                            {prompt}
+                          </p>
                         </div>
                       ))}
                     </div>
-                    
+
                     {/* Competitor Breakdown */}
                     <div className="mt-4 pt-4 border-t border-border/50">
-                      <h4 className="text-sm font-semibold text-foreground mb-3">Brand Mentions for "{keyword.name}"</h4>
+                      <h4 className="text-sm font-semibold text-foreground mb-3">
+                        Brand Mentions for &quot;{keyword.name}&quot;
+                      </h4>
                       <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-2">
-                        {brandInfo
-                          .filter(b => (b.mention_breakdown?.[keyword.id] || 0) > 0 || b.brand === brandName)
-                          .sort((a, b) => (b.mention_breakdown?.[keyword.id] || 0) - (a.mention_breakdown?.[keyword.id] || 0))
-                          .map(brand => {
-                            const score = brand.mention_breakdown?.[keyword.id] || 0;
-                            const isBrand = brand.brand === brandName;
-                            return (
-                              <div 
-                                key={brand.brand} 
-                                className={`flex flex-col items-center p-3 rounded-lg border transition-all ${
-                                  isBrand 
-                                    ? 'bg-primary/10 border-primary/30' 
-                                    : 'bg-muted/50 border-border'
+                        {brandsToDisplay.map((brand) => {
+                          const score =
+                            brand.mention_breakdown?.[keyword.id] ||
+                            DEFAULT_BRAND_MENTION;
+                          const isBrand = brand.brand === brandName;
+                          return (
+                            <div
+                              key={brand.brand}
+                              className={`flex flex-col items-center p-3 rounded-lg border transition-all ${
+                                isBrand
+                                  ? "bg-primary/10 border-primary/30"
+                                  : "bg-muted/50 border-border"
+                              }`}
+                            >
+                              {brand.logo && (
+                                <img
+                                  src={brand.logo}
+                                  alt=""
+                                  className="w-8 h-8 rounded-full object-contain bg-white mb-1"
+                                />
+                              )}
+                              <span
+                                className={`text-[10px] font-medium text-center truncate w-full ${
+                                  isBrand ? "text-primary" : "text-foreground"
                                 }`}
                               >
-                                {brand.logo && (
-                                  <img src={brand.logo} alt="" className="w-8 h-8 rounded-full object-contain bg-white mb-1" />
-                                )}
-                                <span className={`text-[10px] font-medium text-center truncate w-full ${isBrand ? 'text-primary' : 'text-foreground'}`}>
-                                  {brand.brand}
-                                </span>
-                                <span className={`text-lg font-bold ${
-                                  score >= 3 ? 'text-green-500' :
-                                  score >= 1 ? 'text-amber-500' :
-                                  'text-muted-foreground'
-                                }`}>
-                                  {score}
-                                </span>
-                              </div>
-                            );
-                          })}
+                                {brand.brand}
+                              </span>
+                              <span
+                                className={`text-lg font-bold ${
+                                  score >= 3
+                                    ? "text-green-500"
+                                    : score >= 1
+                                    ? "text-amber-500"
+                                    : "text-red-500"
+                                }`}
+                              >
+                                {score}
+                              </span>
+                            </div>
+                          );
+                        })}
                       </div>
                     </div>
                   </div>
@@ -199,7 +308,7 @@ const PromptsContent = () => {
 
       {filteredKeywords.length === 0 && (
         <div className="text-center py-8 md:py-12 text-muted-foreground bg-card rounded-xl border border-border text-sm md:text-base">
-          No keywords or prompts found matching "{searchQuery}"
+          No keywords or prompts found matching &quot;{searchQuery}&quot;
         </div>
       )}
     </div>

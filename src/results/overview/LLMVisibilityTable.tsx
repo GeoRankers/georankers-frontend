@@ -21,7 +21,7 @@ export const LLMVisibilityTable = () => {
         <Bot className="w-5 h-5 text-primary" />
         <h3 className="text-lg font-semibold text-foreground">Model-Wise Visibility</h3>
       </div>
-      <p className="text-xs text-muted-foreground mb-4">Mentions by Platform</p>
+      <p className="text-xs text-muted-foreground mb-4">Your brand's ranking & reach across AI platforms</p>
       
       <div className="overflow-x-auto">
         <table className="w-full">
@@ -31,7 +31,6 @@ export const LLMVisibilityTable = () => {
               <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Mentions</th>
               <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Number of Prompts</th>
               <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Avg Rank</th>
-              <th className="text-center py-3 px-4 text-xs font-medium text-muted-foreground uppercase tracking-wider">Number of Sources Checked</th>
             </tr>
           </thead>
           <tbody>
@@ -55,9 +54,6 @@ export const LLMVisibilityTable = () => {
                     row.avgPosition !== 'N/A' && parseFloat(row.avgPosition.slice(1)) <= 3 ? 'text-amber-500' :
                     row.avgPosition !== 'N/A' ? 'text-red-500' : 'text-muted-foreground'
                   }`}>{row.avgPosition}</span>
-                </td>
-                <td className="py-3 px-4 text-center">
-                  <span className="text-foreground">{row.sources}</span>
                 </td>
               </tr>
             ))}

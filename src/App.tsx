@@ -37,9 +37,9 @@ const App = () => (
             <Route path="/verify-email" element={<VerifyEmail />} />
             <Route path="/email-verification-pending" element={<EmailVerificationPending />} />
             <Route path="/input" element={<InputPage />} />
-            <Route path="/results" element={<Results />} />
+            {/* <Route path="/results" element={<Results />} /> */}
             <Route path="/dashboard" element={<Dashboard />} />
-            <Route path="/newresults/*" element={<NewResultsContainer />} />
+            <Route path="/results/*" element={<NewResultsContainer />} />
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>

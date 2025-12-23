@@ -1,4 +1,7 @@
 import { format } from 'date-fns';
+import { toZonedTime } from 'date-fns-tz';
+
+const IST_TIMEZONE = 'Asia/Kolkata';
 import { calculatePercentile, getTierFromPercentile } from './formulas';
 
 const ANALYTICS_STORAGE_KEY = 'new_results_analytics_data';
@@ -40,25 +43,17 @@ export const formatLogoUrl = (logo: string): string => {
   );
 };
 
-/**
- * Convert UTC date to IST and format
- * IST is UTC+5:30
- */
+
 export const formatDateToIST = (dateStr: string): string => {
   if (!dateStr) return '';
-  
+
   try {
-    // Parse the date string (assumed to be in UTC)
-    const utcDate = new Date(dateStr);
-    
-    // Add 5 hours 30 minutes to convert UTC to IST
-    const istOffset = 5.5 * 60 * 60 * 1000; // 5.5 hours in milliseconds
-    const istDate = new Date(utcDate.getTime() + istOffset);
-    
-    // Format the date in IST
+    const date = new Date(dateStr);
+    const istDate = toZonedTime(date, IST_TIMEZONE); 
+
     return format(istDate, 'd MMM yyyy, hh:mm a');
   } catch (error) {
-    console.error('Error formatting date:', error);
+    console.error('Error formatting date to IST:', error);
     return '';
   }
 };
@@ -283,77 +278,92 @@ export const getAllBrandVisibilityScores = (): number[] => {
   return getCompetitorData().map(c => c.totalScore);
 };
 
-// Get AI Visibility data using geo_score from data
-// Position is calculated from brands array (sorted by geo_score ascending, so last = best)
+// FIXED: Single declaration of getAIVisibilityMetrics with correct t1/t2/t3 mapping
 export const getAIVisibilityMetrics = (): { 
   score: number; 
   tier: string; 
   brandPosition: number;
   totalBrands: number;
-  explanation: string;
   positionBreakdown: {
     topPosition: number;
     midPosition: number;
     lowPosition: number;
   };
 } => {
-  const brandName = getBrandName();
-  const brandInfoWithLogos = getBrandInfoWithLogos();
-  
-  // Find the brand's data
-  const brandData = brandInfoWithLogos.find(b => b.brand === brandName);
-  const score = brandData?.geo_score || 0;
-  const tier = brandData?.geo_tier || 'Low';
-  const totalBrands = brandInfoWithLogos.length;
-  
-  // Sort by geo_score descending (highest first) to calculate position
-  const sortedByScore = [...brandInfoWithLogos].sort((a, b) => b.geo_score - a.geo_score);
-  const brandIndex = sortedByScore.findIndex(b => b.brand === brandName);
-  const brandPosition = brandIndex >= 0 ? brandIndex + 1 : totalBrands;
-  
-  // Calculate position breakdown from llm_wise_data
   const analytics = getAnalytics();
-  const llmData = analytics?.llm_wise_data || {};
+  if (!analytics) {
+    return {
+      score: 0,
+      tier: "Low",
+      positionBreakdown: {
+        topPosition: 0,
+        midPosition: 0,
+        lowPosition: 0,
+      },
+      brandPosition: 0,
+      totalBrands: 0,
+    };
+  }
+
+  const llmData = analytics.llm_wise_data;
+  const brandName = analytics.brand_name;
+  const brands = analytics.brands || [];
+
+  // Get the brand's geo_score directly (this is the AI Visibility Score)
+  const brandInfo = brands.find((b: any) => b.brand === brandName);
+  const visibilityScore = brandInfo?.geo_score || 0;
   
-  let totalQueriesWithBrand = 0;
-  let topPositionCount = 0;
-  let midPositionCount = 0;
-  let lowPositionCount = 0;
+  // Get tier from brand data
+  const tier = brandInfo?.geo_tier || "Low";
+
+  // Calculate position breakdown from LLM data
+  // Combine data from both Gemini and OpenAI
+  const geminiT1 = llmData?.gemini?.t1 || 0;
+  const geminiT2 = llmData?.gemini?.t2 || 0;
+  const geminiT3 = llmData?.gemini?.t3 || 0;
+
+  const openaiT1 = llmData?.openai?.t1 || 0;
+  const openaiT2 = llmData?.openai?.t2 || 0;
+  const openaiT3 = llmData?.openai?.t3 || 0;
+
+  // Total mentions where brand appeared (across all positions)
+  const totalT1 = geminiT1 + openaiT1;
+  const totalT2 = geminiT2 + openaiT2;
+  const totalT3 = geminiT3 + openaiT3;
   
-  // Count from each LLM
-  Object.values(llmData).forEach((data: any) => {
-    if (data?.queries_with_brand) {
-      totalQueriesWithBrand += data.queries_with_brand;
-      const avgRank = data.average_brand_rank || data.average_rank || 0;
-      if (avgRank > 0) {
-        if (avgRank <= 1) {
-          topPositionCount += data.queries_with_brand;
-        } else if (avgRank <= 4) {
-          midPositionCount += data.queries_with_brand;
-        } else {
-          lowPositionCount += data.queries_with_brand;
-        }
-      }
-    }
+  const totalMentions = totalT1 + totalT2 + totalT3;
+
+  // Calculate percentages based on: (# of queries at position / total queries where brand appeared) * 100
+  const topPosition = totalMentions > 0 
+    ? Math.round((totalT1 / totalMentions) * 100) 
+    : 0;
+  const midPosition = totalMentions > 0 
+    ? Math.round((totalT2 / totalMentions) * 100) 
+    : 0;
+  const lowPosition = totalMentions > 0 
+    ? Math.round((totalT3 / totalMentions) * 100) 
+    : 0;
+
+  // Find brand position (rank by geo_score)
+  const sortedBrands = [...brands].sort((a, b) => {
+    const scoreA = a.geo_score || 0;
+    const scoreB = b.geo_score || 0;
+    return scoreB - scoreA;
   });
-  
-  const queriesWithMentions = totalQueriesWithBrand || 1;
-  
-  const topPosition = queriesWithMentions > 0 ? Math.round((topPositionCount / queriesWithMentions) * 100) : 0;
-  const midPosition = queriesWithMentions > 0 ? Math.round((midPositionCount / queriesWithMentions) * 100) : 0;
-  const lowPosition = queriesWithMentions > 0 ? Math.round((lowPositionCount / queriesWithMentions) * 100) : 0;
-  
+
+  const brandPosition = sortedBrands.findIndex(b => b.brand === brandName) + 1;
+  const totalBrands = brands.length;
+
   return {
-    score,
-    tier,
-    brandPosition,
-    totalBrands,
-    explanation: '',
+    score: visibilityScore, // Direct geo_score from data
+    tier, // Direct tier from data
     positionBreakdown: {
-      topPosition,
-      midPosition,
-      lowPosition
-    }
+      topPosition, // Percentage
+      midPosition, // Percentage
+      lowPosition, // Percentage
+    },
+    brandPosition: brandPosition || 0,
+    totalBrands,
   };
 };
 
@@ -391,9 +401,10 @@ export const getMentionsPosition = (): {
   const brandName = getBrandName();
   const brandInfoWithLogos = getBrandInfoWithLogos();
   
-  const allMentionCounts: Record<string, number> = {};
+  // Use mention_score for all calculations
+  const allMentionScores: Record<string, number> = {};
   brandInfoWithLogos.forEach(b => {
-    allMentionCounts[b.brand] = b.mention_score;
+    allMentionScores[b.brand] = b.mention_score; // Direct mention_score
   });
   
   // Sort by mention_score descending to find position
@@ -414,7 +425,7 @@ export const getMentionsPosition = (): {
     totalBrands: brandInfoWithLogos.length,
     topBrandMentions: topMentionScore,
     brandMentions: brandMentionScore,
-    allBrandMentions: allMentionCounts
+    allBrandMentions: allMentionScores
   };
 };
 
@@ -434,8 +445,6 @@ export const getTotalPromptCount = (): number => {
 };
 
 // Get brand mention response rates for table display
-// Shows top 2 brands + test brand with % of AI responses where brand appeared
-// % = (sum of mention_breakdown values / total prompts) * 100, capped at 100%
 export const getBrandMentionResponseRates = (): Array<{
   brand: string;
   responseRate: number;
@@ -444,43 +453,32 @@ export const getBrandMentionResponseRates = (): Array<{
 }> => {
   const brandName = getBrandName();
   const brandInfoWithLogos = getBrandInfoWithLogos();
-  const totalPrompts = getTotalPromptCount();
   
-  // Calculate response rate from mention_breakdown
-  // mention_breakdown shows how many prompts the brand appeared in for each keyword
-  const brandsWithRates = brandInfoWithLogos.map(b => {
-    // Sum up all values in mention_breakdown to get total prompts where brand appeared
-    let totalMentions = 0;
-    if (b.mention_breakdown) {
-      Object.values(b.mention_breakdown).forEach((count: number) => {
-        totalMentions += count;
-      });
-    }
-    
-    // Calculate percentage: (prompts with brand / total prompts) * 100
-    // Cap at 100% to ensure no values exceed maximum
-    const responseRate = totalPrompts > 0 
-      ? Math.min(Math.round((totalMentions / totalPrompts) * 100), 100) 
-      : 0;
-    
-    return {
-      brand: b.brand,
-      responseRate,
-      logo: b.logo,
-      isTestBrand: b.brand === brandName
-    };
-  }).sort((a, b) => b.responseRate - a.responseRate);
+  // Map all brands with their mention_score
+  const allBrandsWithRates = brandInfoWithLogos.map(b => ({
+    brand: b.brand,
+    responseRate: b.mention_score, // Direct mapping from data
+    logo: b.logo,
+    isTestBrand: b.brand === brandName
+  }));
   
-  // Get top 2 brands (excluding test brand) + test brand
-  const topTwoBrands = brandsWithRates.filter(b => !b.isTestBrand).slice(0, 2);
-  const testBrand = brandsWithRates.find(b => b.isTestBrand);
+  // Sort all brands by mention_score descending
+  const sortedBrands = [...allBrandsWithRates].sort((a, b) => b.responseRate - a.responseRate);
   
-  const result = [...topTwoBrands];
+  // Get top 2 competitors (non-test brands with highest scores)
+  const topTwoCompetitors = sortedBrands.filter(b => !b.isTestBrand).slice(0, 2);
+  
+  // Get the test brand
+  const testBrand = sortedBrands.find(b => b.isTestBrand);
+  
+  // Combine all three brands
+  const combinedBrands = [...topTwoCompetitors];
   if (testBrand) {
-    result.push(testBrand);
+    combinedBrands.push(testBrand);
   }
   
-  return result;
+  // Sort the final result by responseRate descending to maintain order
+  return combinedBrands.sort((a, b) => b.responseRate - a.responseRate);
 };
 
 // Get brand's mention percentile for display
@@ -491,7 +489,6 @@ export const getBrandMentionPercentile = (): number => {
   
   if (totalPrompts === 0 || brandInfoWithLogos.length === 0) return 0;
   
-  // Calculate response rates for all brands
   const allRates = brandInfoWithLogos.map(b => {
     let totalMentions = 0;
     if (b.mention_breakdown) {
@@ -505,13 +502,8 @@ export const getBrandMentionPercentile = (): number => {
     };
   });
   
-  // Find brand's rate
   const brandRate = allRates.find(b => b.brand === brandName)?.rate || 0;
-  
-  // Count how many brands have lower rates
   const brandsWithLowerRate = allRates.filter(b => b.rate < brandRate).length;
-  
-  // Calculate percentile: (brands with lower rate / total brands) * 100
   const percentile = Math.round((brandsWithLowerRate / brandInfoWithLogos.length) * 100);
   
   return percentile;
@@ -543,25 +535,21 @@ export const getSourcesData = () => {
   
   const brandName = getBrandName();
   
-  // Transform the new structure to a flat array
   return Object.entries(sourcesAndContentImpact).map(([sourceName, sourceData]: [string, any]) => {
     const mentions = sourceData.mentions || {};
     const pagesUsed = sourceData.pages_used || [];
     
-    // Get the brand's data from mentions
     const brandMentionData = mentions[brandName] || { count: 0, score: 0, insight: '' };
     
-    // Create an object with all brand mentions
     const result: any = {
       name: sourceName,
       pagesUsed,
       [`${brandName}Mentions`]: brandMentionData.count,
-      [`${brandName}Score`]: Math.round(brandMentionData.score * 100), // Convert to percentage
+      [`${brandName}Score`]: Math.round(brandMentionData.score * 100),
       [`${brandName}Insight`]: brandMentionData.insight,
       [`${brandName}Presence`]: brandMentionData.count > 0 ? 'Present' : 'Absent'
     };
     
-    // Add data for all other brands
     Object.entries(mentions).forEach(([brand, data]: [string, any]) => {
       if (brand !== brandName) {
         result[`${brand}Mentions`] = data.count;
@@ -575,7 +563,7 @@ export const getSourcesData = () => {
   });
 };
 
-// Get depth notes for the brand - now from sources_and_content_impact
+// Get depth notes for the brand
 export const getDepthNotes = () => {
   const analytics = getAnalytics();
   const sourcesAndContentImpact = analytics?.sources_and_content_impact;
@@ -598,27 +586,30 @@ export const getDepthNotes = () => {
   return notes;
 };
 
-// LLM-wise data - display only till sources
+// LLM-wise data
 export const getLlmData = () => {
   const analytics = getAnalytics();
   const llmWiseData = analytics?.llm_wise_data || {};
   
-  // Return data with proper field mapping
+  // Calculate total number of prompts from all keywords
+  const totalPrompts = getTotalPromptCount();
+  
   const result: Record<string, any> = {};
   
   Object.entries(llmWiseData).forEach(([llm, data]: [string, any]) => {
     result[llm] = {
       mentions_count: data.mentions_count || 0,
-      prompts: data.prompts || 0,
+      prompts: totalPrompts, // Use calculated total from all keywords
       average_rank: data.average_rank || 0,
-      sources: data.sources || 0
+      sources: data.sources || 0,
+      // Keep original prompts value if needed for debugging
+      _original_prompts: data.prompts || 0
     };
   });
   
   return result;
 };
 
-// Export as constant for backward compatibility
 export const llmData = getLlmData();
 
 // Recommendations
@@ -627,10 +618,9 @@ export const getRecommendations = () => {
   return analytics?.recommendations || [];
 };
 
-// Export as constant for backward compatibility
 export const recommendations = getRecommendations();
 
-// Executive Summary - updated field mapping
+// Executive Summary
 export const getExecutiveSummary = () => {
   const analytics = getAnalytics();
   return analytics?.executive_summary || {
@@ -643,10 +633,9 @@ export const getExecutiveSummary = () => {
   };
 };
 
-// Export as constant for backward compatibility
 export const executiveSummary = getExecutiveSummary();
 
-// Competitor sentiment data - now from brands array
+// Competitor sentiment data
 export const getCompetitorSentiment = () => {
   const brandInfoWithLogos = getBrandInfoWithLogos();
   
@@ -658,10 +647,9 @@ export const getCompetitorSentiment = () => {
   }));
 };
 
-// Export as constant for backward compatibility
 export const competitorSentiment = getCompetitorSentiment();
 
-// Get search keywords (returns keyword names)
+// Get search keywords
 export const getSearchKeywords = () => {
   return getKeywords();
 };

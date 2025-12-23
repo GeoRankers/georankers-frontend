@@ -76,7 +76,7 @@ export const CompetitorComparisonChart = () => {
         <div className="flex items-center gap-2">
           <TrendingUp className="w-5 h-5 text-primary" />
           <h3 className="text-lg font-semibold text-foreground">
-            Brand Comparison
+            Competitive Landscape
           </h3>
         </div>
         <div className="flex items-center gap-1 bg-muted rounded-lg p-1">
@@ -90,15 +90,15 @@ export const CompetitorComparisonChart = () => {
                   : "text-muted-foreground hover:text-foreground"
               }`}
             >
-              {mode === "geo_score" ? "GEO Score" : "Mentions"}
+              {mode === "geo_score" ? "AI Visibility Score" : "Mentions"}
             </button>
           ))}
         </div>
       </div>
       <p className="text-xs text-muted-foreground mb-6">
         {viewMode === "geo_score"
-          ? "Raw visibility score across all competitors"
-          : "Total brand mentions across all sources"}
+          ? "How you stack up against competitors in AI search results"
+          : "Who gets mentioned most across AI platforms"}
       </p>
 
       <div className="h-[300px]">
@@ -164,13 +164,10 @@ export const CompetitorComparisonChart = () => {
                 return [
                   <div className="space-y-1 text-sm">
                     <div>
-                      GEO Score: <strong>{data.geoScore}</strong>
+                      AI Visibility Score: <strong>{data.geoScore}</strong>
                     </div>
                     <div>
                       Mentions: <strong>{data.mentionCount}</strong>
-                    </div>
-                    <div>
-                      Mention Score: <strong>{data.mentionScore}%</strong>
                     </div>
                   </div>,
                   null,

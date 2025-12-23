@@ -1,5 +1,12 @@
 import { getRecommendations, getBrandName } from "@/results/data/analyticsData";
-import { Lightbulb, Target, TrendingUp, Zap, ArrowRight, CheckCircle } from "lucide-react";
+import {
+  Lightbulb,
+  Target,
+  TrendingUp,
+  Zap,
+  ArrowRight,
+  CheckCircle,
+} from "lucide-react";
 
 const RecommendationsContent = () => {
   const brandName = getBrandName();
@@ -7,24 +14,66 @@ const RecommendationsContent = () => {
 
   const getEffortConfig = (effort: string) => {
     switch (effort) {
-      case 'High': return { bg: 'bg-red-500/10', text: 'text-red-500', border: 'border-red-500/20' };
-      case 'Medium': return { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/20' };
-      case 'Low': return { bg: 'bg-green-500/10', text: 'text-green-500', border: 'border-green-500/20' };
-      default: return { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' };
+      case "High":
+        return {
+          bg: "bg-red-500/10",
+          text: "text-red-500",
+          border: "border-red-500/20",
+        };
+      case "Medium":
+        return {
+          bg: "bg-amber-500/10",
+          text: "text-amber-500",
+          border: "border-amber-500/20",
+        };
+      case "Low":
+        return {
+          bg: "bg-green-500/10",
+          text: "text-green-500",
+          border: "border-green-500/20",
+        };
+      default:
+        return {
+          bg: "bg-muted",
+          text: "text-muted-foreground",
+          border: "border-border",
+        };
     }
   };
 
   const getImpactConfig = (impact: string) => {
     switch (impact) {
-      case 'High': return { bg: 'bg-green-500/10', text: 'text-green-500', border: 'border-green-500/20' };
-      case 'Medium': return { bg: 'bg-amber-500/10', text: 'text-amber-500', border: 'border-amber-500/20' };
-      case 'Low': return { bg: 'bg-red-500/10', text: 'text-red-500', border: 'border-red-500/20' };
-      default: return { bg: 'bg-muted', text: 'text-muted-foreground', border: 'border-border' };
+      case "High":
+        return {
+          bg: "bg-green-500/10",
+          text: "text-green-500",
+          border: "border-green-500/20",
+        };
+      case "Medium":
+        return {
+          bg: "bg-amber-500/10",
+          text: "text-amber-500",
+          border: "border-amber-500/20",
+        };
+      case "Low":
+        return {
+          bg: "bg-red-500/10",
+          text: "text-red-500",
+          border: "border-red-500/20",
+        };
+      default:
+        return {
+          bg: "bg-muted",
+          text: "text-muted-foreground",
+          border: "border-border",
+        };
     }
   };
 
-  const highImpact = recommendations.filter((r: any) => r.impact === 'High');
-  const mediumImpact = recommendations.filter((r: any) => r.impact === 'Medium');
+  const highImpact = recommendations.filter((r: any) => r.impact === "High");
+  const mediumImpact = recommendations.filter(
+    (r: any) => r.impact === "Medium"
+  );
 
   return (
     <div className="p-3 md:p-6 space-y-4 md:space-y-6 w-full max-w-full overflow-x-hidden">
@@ -37,13 +86,21 @@ const RecommendationsContent = () => {
               <Lightbulb className="w-5 h-5 md:w-6 md:h-6 text-amber-500" />
             </div>
             <div>
-              <h1 className="text-lg md:text-2xl font-bold text-foreground">Strategic Recommendations</h1>
-              <p className="text-xs md:text-sm text-muted-foreground">AI-powered insights to improve {brandName}'s visibility</p>
+              <h1 className="text-lg md:text-2xl font-bold text-foreground">
+                Strategic Recommendations
+              </h1>
+              <p className="text-xs md:text-sm text-muted-foreground">
+                Data-driven actions to boost {brandName}'s AI presence
+              </p>
             </div>
           </div>
-          <div className="text-left sm:text-right">
-            <div className="text-2xl md:text-3xl font-bold text-amber-500">{recommendations.length}</div>
-            <div className="text-[10px] md:text-xs text-muted-foreground">Action Items</div>
+          <div className="text-center sm:text-right">
+            <div className="text-2xl md:text-3xl font-bold text-amber-500">
+              {recommendations.length}
+            </div>
+            <div className="text-[10px] md:text-xs text-muted-foreground">
+              Action Items
+            </div>
           </div>
         </div>
       </div>
@@ -54,28 +111,41 @@ const RecommendationsContent = () => {
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3">
             <div className="flex items-center gap-1.5 md:gap-3">
               <Zap className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
-              <span className="text-[10px] md:text-sm font-medium text-foreground">High Impact</span>
+              <span className="text-[10px] md:text-sm font-medium text-foreground">
+                High Impact
+              </span>
             </div>
-            <span className="text-xl md:text-2xl font-bold text-green-500">{highImpact.length}</span>
+            <span className="text-xl md:text-2xl font-bold text-green-500">
+              {highImpact.length}
+            </span>
           </div>
         </div>
         <div className="bg-amber-500/10 rounded-lg md:rounded-xl border border-amber-500/20 p-3 md:p-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3">
             <div className="flex items-center gap-1.5 md:gap-3">
               <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
-              <span className="text-[10px] md:text-sm font-medium text-foreground">Medium Impact</span>
+              <span className="text-[10px] md:text-sm font-medium text-foreground">
+                Medium Impact
+              </span>
             </div>
-            <span className="text-xl md:text-2xl font-bold text-amber-500">{mediumImpact.length}</span>
+            <span className="text-xl md:text-2xl font-bold text-amber-500">
+              {mediumImpact.length}
+            </span>
           </div>
         </div>
         <div className="bg-muted rounded-lg md:rounded-xl border border-border p-3 md:p-5">
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3">
             <div className="flex items-center gap-1.5 md:gap-3">
               <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
-              <span className="text-[10px] md:text-sm font-medium text-foreground">Quick Wins</span>
+              <span className="text-[10px] md:text-sm font-medium text-foreground">
+                Quick Wins
+              </span>
             </div>
             <span className="text-xl md:text-2xl font-bold text-foreground">
-              {recommendations.filter((r: any) => r.overall_effort === 'Low').length}
+              {
+                recommendations.filter((r: any) => r.overall_effort === "Low")
+                  .length
+              }
             </span>
           </div>
         </div>
@@ -88,33 +158,56 @@ const RecommendationsContent = () => {
           const impactConfig = getImpactConfig(rec.impact);
 
           return (
-            <div 
-              key={index} 
+            <div
+              key={index}
               className="bg-card rounded-xl border border-border overflow-hidden hover:shadow-md transition-all group"
             >
               {/* Header */}
               <div className="p-3 md:p-6 pb-2 md:pb-4">
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4 mb-3 md:mb-4">
                   <div className="flex items-start gap-2 md:gap-4 flex-1">
-                    <div className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${impactConfig.bg} ${impactConfig.text} font-bold text-sm md:text-base`}>
+                    <div
+                      className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${impactConfig.bg} ${impactConfig.text} font-bold text-sm md:text-base`}
+                    >
                       {index + 1}
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-1.5 md:gap-2 mb-1 md:mb-2">
                         <Lightbulb className="w-3 h-3 md:w-4 md:h-4 text-amber-400" />
-                        <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wider">Insight</span>
+                        <span className="text-[10px] md:text-xs font-medium text-muted-foreground uppercase tracking-wider">
+                          Insight
+                        </span>
                       </div>
-                      <p className="text-xs md:text-base text-foreground leading-relaxed">{rec.overall_insight}</p>
+                      <p className="text-xs md:text-base text-foreground leading-relaxed">
+                        {rec.overall_insight}
+                      </p>
                     </div>
                   </div>
                   <div className="flex gap-2 flex-shrink-0 ml-10 md:ml-0">
-                    <div className={`px-2 py-1 md:px-3 md:py-1.5 rounded-lg ${effortConfig.bg} border ${effortConfig.border}`}>
-                      <span className="text-[8px] md:text-xs text-muted-foreground block">Effort</span>
-                      <span className={`text-[10px] md:text-sm font-semibold ${effortConfig.text}`}>{rec.overall_effort}</span>
+                    <div
+                      className={`w-20 md:w-24 h-12 md:h-14 flex flex-col justify-center rounded-lg ${effortConfig.bg} border ${effortConfig.border}`}
+                    >
+                      <span className="text-[8px] md:text-xs text-muted-foreground text-center">
+                        Effort
+                      </span>
+                      <span
+                        className={`text-[10px] md:text-sm font-semibold text-center ${effortConfig.text}`}
+                      >
+                        {rec.overall_effort}
+                      </span>
                     </div>
-                    <div className={`px-2 py-1 md:px-3 md:py-1.5 rounded-lg ${impactConfig.bg} border ${impactConfig.border}`}>
-                      <span className="text-[8px] md:text-xs text-muted-foreground block">Impact</span>
-                      <span className={`text-[10px] md:text-sm font-semibold ${impactConfig.text}`}>{rec.impact}</span>
+
+                    <div
+                      className={`w-20 md:w-24 h-12 md:h-14 flex flex-col justify-center rounded-lg ${impactConfig.bg} border ${impactConfig.border}`}
+                    >
+                      <span className="text-[8px] md:text-xs text-muted-foreground text-center">
+                        Impact
+                      </span>
+                      <span
+                        className={`text-[10px] md:text-sm font-semibold text-center ${impactConfig.text}`}
+                      >
+                        {rec.impact}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -127,10 +220,13 @@ const RecommendationsContent = () => {
                     <Target className="w-3 h-3 md:w-4 md:h-4 text-primary" />
                   </div>
                   <div className="flex-1 min-w-0">
-                    <span className="text-[10px] md:text-xs font-medium text-primary uppercase tracking-wider block mb-0.5 md:mb-1">Suggested Action</span>
-                    <p className="text-xs md:text-sm text-foreground leading-relaxed">{rec.suggested_action}</p>
+                    <span className="text-[10px] md:text-xs font-medium text-primary uppercase tracking-wider block mb-0.5 md:mb-1">
+                      Suggested Action
+                    </span>
+                    <p className="text-xs md:text-sm text-foreground leading-relaxed">
+                      {rec.suggested_action}
+                    </p>
                   </div>
-                  <ArrowRight className="w-4 h-4 md:w-5 md:h-5 text-primary flex-shrink-0 opacity-0 group-hover:opacity-100 transition-opacity hidden md:block" />
                 </div>
               </div>
             </div>
