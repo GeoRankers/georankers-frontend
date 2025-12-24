@@ -790,7 +790,7 @@ export const Header = () => {
             </button>
 
             <Link to="/" className="flex items-center gap-1.5 md:gap-2">
-              <span className="text-xl md:text-2xl font-bold gradient-text">
+              <span className="text-lg md:text-2xl font-bold gradient-text">
                 GeoRankers
               </span>
             </Link>
@@ -799,7 +799,7 @@ export const Header = () => {
           <div className="flex items-center gap-1.5 md:gap-3">
             {/* Analysis in Progress Animation - beside New Analysis button */}
             {(isAnalysisInProgress || isRegenerating || analysisActionLocked) && (
-              <div className="hidden sm:flex">
+              <div className="flex items-center">
                 <AnalyzingAnimation />
               </div>
             )}
