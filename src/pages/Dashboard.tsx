@@ -29,6 +29,9 @@ import {
   Check,
   RefreshCw,
   X,
+  ChevronUp,
+  ChevronDown,
+  ChevronsUpDown,
 } from "lucide-react";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -43,6 +46,12 @@ import {
 } from "@/components/ui/select";
 import { format, startOfDay, endOfDay, isAfter, isBefore, parseISO } from "date-fns";
 
+type SortConfig = {
+  key: keyof DashboardUser | "keywords_count" | null;
+  direction: "asc" | "desc";
+};
+
+
 export default function Dashboard() {
   const [users, setUsers] = useState<DashboardUser[]>([]);
   const [filteredUsers, setFilteredUsers] = useState<DashboardUser[]>([]);
@@ -52,6 +61,10 @@ export default function Dashboard() {
   const [dateFrom, setDateFrom] = useState<Date | undefined>(undefined);
   const [dateTo, setDateTo] = useState<Date | undefined>(undefined);
   const [dateFilterType, setDateFilterType] = useState<"created_at" | "updated_at" | "both">("created_at");
+  const [sortConfig, setSortConfig] = useState<SortConfig>({
+    key: "created_at",
+    direction: "desc",
+  });
   const { toast } = useToast();
 
   // Fetch users function (reusable)
@@ -61,12 +74,12 @@ export default function Dashboard() {
     } else {
       setIsLoading(true);
     }
-    
+
     try {
       const data = await getDashboardUsers();
       setUsers(data);
       setFilteredUsers(data);
-      
+
       if (isRefresh) {
         toast({
           title: "Success",
@@ -136,11 +149,11 @@ export default function Dashboard() {
         if (dateFilterType === "both") {
           const createdDate = parseISO(user.created_at);
           const updatedDate = parseISO(user.updated_at);
-          
+
           const createdMatches =
             (!fromDate || !isBefore(createdDate, fromDate)) &&
             (!toDate || !isAfter(createdDate, toDate));
-          
+
           const updatedMatches =
             (!fromDate || !isBefore(updatedDate, fromDate)) &&
             (!toDate || !isAfter(updatedDate, toDate));
@@ -153,8 +166,50 @@ export default function Dashboard() {
       });
     }
 
+    // Apply sorting
+    if (sortConfig.key) {
+      filtered.sort((a, b) => {
+        let aValue: any = a[sortConfig.key as keyof DashboardUser];
+        let bValue: any = b[sortConfig.key as keyof DashboardUser];
+
+        // Specific handling for keywords count if needed
+        if (sortConfig.key === "keywords_count") {
+          aValue = a.keywords_list?.length || 0;
+          bValue = b.keywords_list?.length || 0;
+        }
+
+        if (aValue === bValue) return 0;
+        if (aValue === null || aValue === undefined) return 1;
+        if (bValue === null || bValue === undefined) return -1;
+
+        const comparison = aValue < bValue ? -1 : 1;
+        return sortConfig.direction === "asc" ? comparison : -comparison;
+      });
+    }
+
     setFilteredUsers(filtered);
-  }, [searchQuery, users, dateFrom, dateTo, dateFilterType]);
+  }, [searchQuery, users, dateFrom, dateTo, dateFilterType, sortConfig]);
+
+  // Handle sort function
+  const handleSort = (key: keyof DashboardUser | "keywords_count") => {
+    let direction: "asc" | "desc" = "asc";
+    if (sortConfig.key === key && sortConfig.direction === "asc") {
+      direction = "desc";
+    }
+    setSortConfig({ key, direction });
+  };
+
+  // Helper to render sort icon
+  const renderSortIcon = (key: keyof DashboardUser | "keywords_count") => {
+    if (sortConfig.key !== key) {
+      return <ChevronsUpDown className="ml-2 h-4 w-4 opacity-50" />;
+    }
+    return sortConfig.direction === "asc" ? (
+      <ChevronUp className="ml-2 h-4 w-4" />
+    ) : (
+      <ChevronDown className="ml-2 h-4 w-4" />
+    );
+  };
 
   // Format date to readable format (without year)
   const formatDate = (dateString: string) => {
@@ -176,25 +231,26 @@ export default function Dashboard() {
   const renderBooleanBadge = (value: boolean | undefined) => {
     if (value === true) {
       return (
-        <Badge className="bg-green-100 text-green-700 border-green-300 hover:bg-green-100">
+        <Badge className="bg-success/10 text-success border-success/20 hover:bg-success/20 transition-smooth">
           <Check className="w-3 h-3 mr-1" />
           Yes
         </Badge>
       );
     } else if (value === false) {
       return (
-        <Badge variant="outline" className="bg-slate-100 text-slate-600 border-slate-300">
+        <Badge variant="outline" className="bg-muted/30 text-muted-foreground border-border/50">
           No
         </Badge>
       );
     } else {
       return (
-        <Badge variant="outline" className="bg-slate-50 text-slate-400 border-slate-200">
+        <Badge variant="outline" className="bg-muted/10 text-muted-foreground/50 border-border/20">
           N/A
         </Badge>
       );
     }
   };
+
 
   return (
     <Layout>
@@ -230,54 +286,61 @@ export default function Dashboard() {
           </div>
 
           {/* Stats Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <Card className="card-gradient border-0">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <Card className="card-gradient border-0 shadow-elevated transition-bounce hover:-translate-y-1">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">Total Users</p>
-                    <p className="text-3xl font-bold gradient-text mt-1">
+                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">Total Users</p>
+                    <p className="text-4xl font-extrabold gradient-text mt-2">
                       {users.length}
                     </p>
                   </div>
-                  <Users className="w-8 h-8 text-primary opacity-50" />
+                  <div className="p-4 rounded-2xl bg-primary/10 hero-glow">
+                    <Users className="w-8 h-8 text-primary" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="card-gradient border-0">
+            <Card className="card-gradient border-0 shadow-elevated transition-bounce hover:-translate-y-1">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                       Filtered Results
                     </p>
-                    <p className="text-3xl font-bold gradient-text mt-1">
+                    <p className="text-4xl font-extrabold gradient-text mt-2">
                       {filteredUsers.length}
                     </p>
                   </div>
-                  <Search className="w-8 h-8 text-primary opacity-50" />
+                  <div className="p-4 rounded-2xl bg-primary/10 hero-glow">
+                    <Search className="w-8 h-8 text-primary" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
-            <Card className="card-gradient border-0">
+            <Card className="card-gradient border-0 shadow-elevated transition-bounce hover:-translate-y-1">
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-sm font-medium text-muted-foreground uppercase tracking-wider">
                       Total Keywords
                     </p>
-                    <p className="text-3xl font-bold gradient-text mt-1">
+                    <p className="text-4xl font-extrabold gradient-text mt-2">
                       {users.reduce(
                         (sum, user) => sum + (user.keywords_list?.length || 0),
                         0
                       )}
                     </p>
                   </div>
-                  <FileJson className="w-8 h-8 text-primary opacity-50" />
+                  <div className="p-4 rounded-2xl bg-primary/10 hero-glow">
+                    <FileJson className="w-8 h-8 text-primary" />
+                  </div>
                 </div>
               </CardContent>
             </Card>
           </div>
+
 
           {/* Search and Filter Section */}
           <Card className="card-gradient border-0 shadow-elevated">
@@ -290,113 +353,96 @@ export default function Dashboard() {
             <CardContent>
               <div className="mb-6">
                 {/* Search and Filters in One Line */}
-                <div className="flex items-center gap-3 flex-wrap">
+                <div className="flex items-center gap-4 flex-wrap bg-muted/20 p-4 rounded-xl border border-border/50">
                   {/* Search Input */}
-                  <div className="relative flex-1 min-w-[200px]">
-                    <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground z-10" />
+                  <div className="relative flex-1 min-w-[300px] group">
+                    <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-4 h-4 text-muted-foreground group-focus-within:text-primary transition-colors z-10" />
                     <Input
-                      placeholder="Search by name, email, or website..."
+                      placeholder="Search users..."
                       value={searchQuery}
                       onChange={(e) => setSearchQuery(e.target.value)}
-                      className="pl-10 h-10"
+                      className="pl-12 h-12 bg-background/50 border-border/50 focus:border-primary/50 focus:ring-primary/20 transition-smooth rounded-lg"
                     />
                   </div>
 
-                  {/* Visual Separator */}
-                  <div className="h-10 w-px bg-border flex-shrink-0" />
+                  {/* Vertical Separator */}
+                  <div className="hidden lg:block h-8 w-px bg-border/60 mx-2" />
 
-                  {/* Date Filter Type */}
-                  <Select value={dateFilterType} onValueChange={(value: "created_at" | "updated_at" | "both") => setDateFilterType(value)}>
-                    <SelectTrigger className="w-[140px] h-10 flex-shrink-0">
-                      <SelectValue placeholder="Filter by" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="created_at">Created</SelectItem>
-                      <SelectItem value="updated_at">Updated</SelectItem>
-                      <SelectItem value="both">Both</SelectItem>
-                    </SelectContent>
-                  </Select>
+                  <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                    {/* Date Filter Type */}
+                    <Select value={dateFilterType} onValueChange={(value: "created_at" | "updated_at" | "both") => setDateFilterType(value)}>
+                      <SelectTrigger className="w-[120px] h-12 bg-background/50 border-border/50">
+                        <SelectValue placeholder="Filter by" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="created_at">Created</SelectItem>
+                        <SelectItem value="updated_at">Updated</SelectItem>
+                        <SelectItem value="both">Both</SelectItem>
+                      </SelectContent>
+                    </Select>
 
-                  {/* From Date */}
-                  <Popover>
-                    <PopoverTrigger asChild>
+                    {/* From Date */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-[140px] h-12 justify-start text-left font-normal bg-background/50 border-border/50 transition-smooth hover:bg-background/80 ${!dateFrom ? "text-muted-foreground" : ""}`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateFrom ? format(dateFrom, "MMM d") : "From"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateFrom}
+                          onSelect={setDateFrom}
+                          initialFocus
+                        />
+                      </PopoverContent>
+                    </Popover>
+
+                    {/* To Date */}
+                    <Popover>
+                      <PopoverTrigger asChild>
+                        <Button
+                          variant="outline"
+                          className={`w-[140px] h-12 justify-start text-left font-normal bg-background/50 border-border/50 transition-smooth hover:bg-background/80 ${!dateTo ? "text-muted-foreground" : ""}`}
+                        >
+                          <CalendarIcon className="mr-2 h-4 w-4" />
+                          {dateTo ? format(dateTo, "MMM d") : "To"}
+                        </Button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-auto p-0" align="start">
+                        <Calendar
+                          mode="single"
+                          selected={dateTo}
+                          onSelect={setDateTo}
+                          initialFocus
+                          disabled={(date) => dateFrom ? date < dateFrom : false}
+                        />
+                      </PopoverContent>
+                    </Popover>
+
+                    {/* Clear Button */}
+                    {(searchQuery || dateFrom || dateTo) && (
                       <Button
-                        variant="outline"
-                        className={`w-[160px] h-10 justify-start text-left font-normal flex-shrink-0 ${!dateFrom ? "text-muted-foreground" : ""}`}
+                        variant="ghost"
+                        onClick={() => {
+                          setSearchQuery("");
+                          setDateFrom(undefined);
+                          setDateTo(undefined);
+                        }}
+                        className="h-12 px-4 hover:bg-destructive/5 hover:text-destructive group transition-smooth"
                       >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateFrom ? format(dateFrom, "MMM d") : "From"}
+                        <X className="w-4 h-4 mr-2 group-hover:rotate-90 transition-smooth" />
+                        Clear
                       </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateFrom}
-                        onSelect={setDateFrom}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-
-                  {/* To Date */}
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant="outline"
-                        className={`w-[160px] h-10 justify-start text-left font-normal flex-shrink-0 ${!dateTo ? "text-muted-foreground" : ""}`}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {dateTo ? format(dateTo, "MMM d") : "To"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={dateTo}
-                        onSelect={setDateTo}
-                        initialFocus
-                        disabled={(date) => dateFrom ? date < dateFrom : false}
-                      />
-                    </PopoverContent>
-                  </Popover>
-
-                  {/* Clear Buttons */}
-                  {searchQuery && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => setSearchQuery("")}
-                      className="flex-shrink-0 h-10 w-10 p-0"
-                    >
-                      <X className="h-4 w-4" />
-                    </Button>
-                  )}
-
-                  {(dateFrom || dateTo) && (
-                    <Button
-                      variant="ghost"
-                      onClick={() => {
-                        setDateFrom(undefined);
-                        setDateTo(undefined);
-                      }}
-                      className="flex items-center gap-1.5 flex-shrink-0 h-10 px-3"
-                    >
-                      <X className="h-4 w-4" />
-                      <span className="text-xs">Clear</span>
-                    </Button>
-                  )}
-
-                  {/* Active Filter Badge */}
-                  {(dateFrom || dateTo) && (
-                    <Badge variant="secondary" className="flex-shrink-0 text-xs h-10 flex items-center">
-                      {dateFrom && dateTo
-                        ? `${format(dateFrom, "MMM d")} - ${format(dateTo, "MMM d")}`
-                        : dateFrom
-                        ? `From ${format(dateFrom, "MMM d")}`
-                        : `Until ${format(dateTo, "MMM d")}`}
-                    </Badge>
-                  )}
+                    )}
+                  </div>
                 </div>
               </div>
+
 
               {/* Table */}
               {isLoading ? (
@@ -419,19 +465,69 @@ export default function Dashboard() {
                     <Table>
                       <TableHeader>
                         <TableRow className="bg-muted/50">
-                          <TableHead className="font-semibold text-center">User</TableHead>
-                          <TableHead className="font-semibold text-center">Email</TableHead>
-                          <TableHead className="font-semibold text-center">Website</TableHead>
-                          <TableHead className="font-semibold text-center">
-                            Keywords
+                          <TableHead
+                            className="font-semibold text-center cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => handleSort("name")}
+                          >
+                            <div className="flex items-center justify-center">
+                              User {renderSortIcon("name")}
+                            </div>
                           </TableHead>
-                          <TableHead className="font-semibold text-center">Created</TableHead>
-                          <TableHead className="font-semibold text-center">Updated</TableHead>
-                          <TableHead className="font-semibold text-center">
-                            Results Generated
+                          <TableHead
+                            className="font-semibold text-center cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => handleSort("email")}
+                          >
+                            <div className="flex items-center justify-center">
+                              Email {renderSortIcon("email")}
+                            </div>
                           </TableHead>
-                          <TableHead className="font-semibold text-center">
-                            Analytics Generated
+                          <TableHead
+                            className="font-semibold text-center cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => handleSort("product_website")}
+                          >
+                            <div className="flex items-center justify-center">
+                              Website {renderSortIcon("product_website")}
+                            </div>
+                          </TableHead>
+                          <TableHead
+                            className="font-semibold text-center cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => handleSort("keywords_count")}
+                          >
+                            <div className="flex items-center justify-center">
+                              Keywords {renderSortIcon("keywords_count")}
+                            </div>
+                          </TableHead>
+                          <TableHead
+                            className="font-semibold text-center cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => handleSort("created_at")}
+                          >
+                            <div className="flex items-center justify-center">
+                              Created {renderSortIcon("created_at")}
+                            </div>
+                          </TableHead>
+                          <TableHead
+                            className="font-semibold text-center cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => handleSort("updated_at")}
+                          >
+                            <div className="flex items-center justify-center">
+                              Updated {renderSortIcon("updated_at")}
+                            </div>
+                          </TableHead>
+                          <TableHead
+                            className="font-semibold text-center cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => handleSort("results_generated")}
+                          >
+                            <div className="flex items-center justify-center text-xs">
+                              Results {renderSortIcon("results_generated")}
+                            </div>
+                          </TableHead>
+                          <TableHead
+                            className="font-semibold text-center cursor-pointer hover:bg-muted transition-colors"
+                            onClick={() => handleSort("analytics_generated")}
+                          >
+                            <div className="flex items-center justify-center text-xs">
+                              Analytics {renderSortIcon("analytics_generated")}
+                            </div>
                           </TableHead>
                         </TableRow>
                       </TableHeader>
@@ -439,89 +535,90 @@ export default function Dashboard() {
                         {filteredUsers.map((dashboardUser) => (
                           <TableRow
                             key={dashboardUser.id}
-                            className="hover:bg-muted/30 transition-colors"
+                            className="hover:bg-primary/[0.03] transition-colors group/row"
                           >
-                            <TableCell className="font-medium text-center">
-                              {dashboardUser.name || "N/A"}
+                            <TableCell className="font-semibold text-center py-4">
+                              {dashboardUser.name || <span className="text-muted-foreground italic">N/A</span>}
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center py-4">
                               <a
                                 href={`mailto:${dashboardUser.email}`}
-                                className="text-primary hover:underline"
+                                className="text-primary hover:text-primary-glow font-medium transition-colors hover:underline underline-offset-4"
                               >
                                 {dashboardUser.email}
                               </a>
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center py-4">
                               {dashboardUser.product_website ? (
                                 <a
                                   href={dashboardUser.product_website}
                                   target="_blank"
                                   rel="noopener noreferrer"
-                                  className="text-primary hover:underline flex items-center justify-center gap-1"
+                                  className="text-muted-foreground hover:text-primary transition-colors flex items-center justify-center gap-1.5 group/link"
                                 >
-                                  {dashboardUser.product_website.length > 30
-                                    ? `${dashboardUser.product_website.substring(0, 30)}...`
-                                    : dashboardUser.product_website}
-                                  <ExternalLink className="w-3 h-3" />
+                                  <span className="max-w-[150px] truncate">
+                                    {dashboardUser.product_website.replace(/^https?:\/\//, '')}
+                                  </span>
+                                  <ExternalLink className="w-3 h-3 group-hover/link:translate-x-0.5 group-hover/link:-translate-y-0.5 transition-transform" />
                                 </a>
                               ) : (
-                                "N/A"
+                                <span className="text-muted-foreground italic">N/A</span>
                               )}
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center py-4">
                               {dashboardUser.keywords_list && dashboardUser.keywords_list.length > 0 ? (
                                 <Popover>
                                   <PopoverTrigger asChild>
-                                    <div className="flex items-center justify-center gap-2 cursor-pointer hover:opacity-80 transition-opacity">
-                                      <Badge variant="secondary" className="hover:bg-secondary/80">
+                                    <div className="flex items-center justify-center gap-2 cursor-pointer group/keywords">
+                                      <Badge variant="secondary" className="bg-primary/10 text-primary border-primary/20 group-hover/keywords:bg-primary/20 transition-smooth">
                                         {dashboardUser.keywords_list.length}
                                       </Badge>
-                                      <span className="text-xs text-muted-foreground">
+                                      <span className="text-xs text-muted-foreground font-medium group-hover/keywords:text-foreground transition-colors">
                                         keywords
                                       </span>
                                     </div>
                                   </PopoverTrigger>
-                                  <PopoverContent className="w-80" align="start">
-                                    <div className="space-y-3">
+                                  <PopoverContent className="w-80 p-0 shadow-elevated border-border/50 overflow-hidden" align="start">
+                                    <div className="p-4 bg-muted/30 border-b border-border/50">
                                       <div className="flex items-center gap-2">
-                                        <Search className="w-4 h-4 text-primary" />
-                                        <h4 className="font-semibold text-sm">Keywords ({dashboardUser.keywords_list.length})</h4>
+                                        <div className="p-1.5 rounded-md bg-primary/20">
+                                          <Search className="w-4 h-4 text-primary" />
+                                        </div>
+                                        <h4 className="font-bold text-sm">Keywords ({dashboardUser.keywords_list.length})</h4>
                                       </div>
-                                      <div className="flex flex-wrap gap-2">
-                                        {dashboardUser.keywords_list.map((keyword: string, idx: number) => (
-                                          <Badge key={idx} variant="outline" className="text-xs">
-                                            {keyword}
-                                          </Badge>
-                                        ))}
-                                      </div>
+                                    </div>
+                                    <div className="p-4 flex flex-wrap gap-2 max-h-[200px] overflow-y-auto">
+                                      {dashboardUser.keywords_list.map((keyword: string, idx: number) => (
+                                        <Badge key={idx} variant="outline" className="text-[11px] bg-background border-border/60 hover:border-primary/50 transition-colors py-0.5">
+                                          {keyword}
+                                        </Badge>
+                                      ))}
                                     </div>
                                   </PopoverContent>
                                 </Popover>
                               ) : (
-                                <div className="flex items-center justify-center gap-2">
-                                  <Badge variant="secondary">
-                                    0
-                                  </Badge>
-                                  <span className="text-xs text-muted-foreground">
-                                    keywords
+                                <div className="flex items-center justify-center gap-2 opacity-50">
+                                  <Badge variant="outline" className="bg-muted">0</Badge>
+                                  <span className="text-xs text-muted-foreground italic">
+                                    none
                                   </span>
                                 </div>
                               )}
                             </TableCell>
-                            <TableCell className="text-center text-sm">
+                            <TableCell className="text-center text-sm py-4 tabular-nums text-muted-foreground">
                               {formatDate(dashboardUser.created_at)}
                             </TableCell>
-                            <TableCell className="text-center text-sm">
+                            <TableCell className="text-center text-sm py-4 tabular-nums text-muted-foreground">
                               {formatDate(dashboardUser.updated_at)}
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center py-4">
                               {renderBooleanBadge(dashboardUser.results_generated)}
                             </TableCell>
-                            <TableCell className="text-center">
+                            <TableCell className="text-center py-4">
                               {renderBooleanBadge(dashboardUser.analytics_generated)}
                             </TableCell>
                           </TableRow>
+
                         ))}
                       </TableBody>
                     </Table>
