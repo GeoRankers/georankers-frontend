@@ -37,24 +37,60 @@ const OverviewContent = () => {
   const { dataReady } = useResults();
   const [animatedBars, setAnimatedBars] = useState(false);
 
+  // FIX 1: Check if analytics data is available first
+  const analyticsAvailable = hasAnalyticsData();
+
+  // FIX 2: Only compute derived values when data is actually available
+  // Use empty fallbacks to maintain hook order
+  const visibilityData = useMemo(() => {
+    if (!analyticsAvailable) {
+      return {
+        score: 0,
+        tier: "Low",
+        brandPosition: 0,
+        totalBrands: 0,
+        positionBreakdown: {
+          topPosition: 0,
+          midPosition: 0,
+          lowPosition: 0,
+        },
+      };
+    }
+    return getAIVisibilityMetrics();
+  }, [analyticsAvailable]);
+
+  const mentionsData = useMemo(() => {
+    if (!analyticsAvailable) {
+      return {
+        position: 0,
+        tier: "Low",
+        totalBrands: 0,
+        topBrandMentions: 0,
+        brandMentions: 0,
+        allBrandMentions: {},
+      };
+    }
+    return getMentionsPosition();
+  }, [analyticsAvailable]);
+
+  const brandMentionRates = useMemo(() => {
+    if (!analyticsAvailable) return [];
+    return getBrandMentionResponseRates();
+  }, [analyticsAvailable]);
+
+  const sentiment = useMemo(() => {
+    if (!analyticsAvailable) {
+      return { dominant_sentiment: "N/A", summary: "" };
+    }
+    return getSentiment();
+  }, [analyticsAvailable]);
+
   useEffect(() => {
-    if (dataReady) {
+    if (dataReady && analyticsAvailable) {
       const timer = setTimeout(() => setAnimatedBars(true), 100);
       return () => clearTimeout(timer);
     }
-  }, [dataReady]);
-
-  // IMPORTANT: keep hooks order stable across renders.
-  // Compute derived values unconditionally, with safe fallbacks.
-  const analyticsAvailable = hasAnalyticsData();
-
-  const visibilityData = useMemo(() => getAIVisibilityMetrics(), [analyticsAvailable]);
-  const mentionsData = useMemo(() => getMentionsPosition(), [analyticsAvailable]);
-  const brandMentionRates = useMemo(
-    () => getBrandMentionResponseRates(),
-    [analyticsAvailable]
-  );
-  const sentiment = useMemo(() => getSentiment(), [analyticsAvailable]);
+  }, [dataReady, analyticsAvailable]);
 
   const getMedalIcon = (index: number, isTestBrand: boolean) => {
     if (index === 0) return <Trophy className="w-4 h-4 text-yellow-500" />;
@@ -89,6 +125,7 @@ const OverviewContent = () => {
     )} position out of ${totalBrands} brands.`;
   }, [visibilityData]);
 
+  // FIX 3: Show loading state properly
   if (!dataReady || !analyticsAvailable) {
     return (
       <div className="container mx-auto px-4 py-20">
@@ -154,7 +191,7 @@ const OverviewContent = () => {
               </div>
             </div>
 
-            {/* Position Breakdown - Updated with correct data */}
+            {/* Position Breakdown */}
             <div className="space-y-2">
               <Tooltip>
                 <TooltipTrigger asChild>
@@ -219,7 +256,7 @@ const OverviewContent = () => {
               </Tooltip>
             </div>
 
-            {visibilityData.brandPosition > 0 && (
+            {visibilityData.brandPosition > 0 && visibilityInsight && (
               <p className="text-sm text-foreground font-medium border-t pt-3 mt-4">
                 {visibilityInsight}
               </p>
@@ -242,17 +279,15 @@ const OverviewContent = () => {
 
             {/* Table Header */}
             <div className="grid grid-cols-[auto_1fr_auto] gap-3 text-xs text-muted-foreground mb-3 pb-2 border-b border-border">
-              <span>Brand</span>
-              <span className="text-center"></span>
-              <span>% of AI responses</span>
+              <span>% of AI responses where your brand is mentioned</span>
             </div>
 
-            {/* Brand Rows with Progress Bars */}
+            {/* FIX 4: Add unique keys using brand name + index */}
             <div className="space-y-3">
               {brandMentionRates.map((item, index) => {
                 return (
                   <div
-                    key={item.brand}
+                    key={`brand-mention-${item.brand}-${index}`}
                     className="grid grid-cols-[auto_1fr_auto] gap-3 items-center"
                   >
                     <div className="flex items-center gap-2 min-w-[100px]">
@@ -316,7 +351,7 @@ const OverviewContent = () => {
             </div>
             <div className="flex flex-col items-center justify-center py-2">
               <p className="text-sm text-muted-foreground text-center leading-relaxed">
-                {sentiment.summary}
+                {sentiment.summary || "No sentiment data available"}
               </p>
             </div>
           </div>

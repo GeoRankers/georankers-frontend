@@ -8,7 +8,7 @@ const BrandInfoBar = () => {
   const brandWebsite = getBrandWebsite();
   const modelName = getModelName();
   const keywords = getAnalysisKeywords();
-  const brandLogo = getBrandLogo(brandName);
+  const brandLogo = getBrandLogo();
   const analysisDate = getAnalysisDate();
   
   const models = modelName?.split(",").map((m) => m.trim()).filter(m => m === 'openai' || m === 'gemini') || [];
@@ -21,7 +21,7 @@ const BrandInfoBar = () => {
         {/* Left: Brand logo, name, website and keywords */}
         <div className="flex items-start gap-4">
           {brandLogo ? (
-            <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-primary/10 flex items-center justify-center p-2 flex-shrink-0">
+            <div className="w-14 h-14 md:w-16 md:h-16 rounded-xl bg-black/5 flex items-center justify-center p-2 flex-shrink-0">
               <img 
                 src={brandLogo} 
                 alt={brandName} 

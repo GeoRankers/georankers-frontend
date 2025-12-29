@@ -25,17 +25,17 @@ export const CompetitorMentions = () => {
       </div>
 
       <div className="space-y-3">
-        {competitorVisibility.map((competitor) => {
-          const isPrimaryBrand = competitor.name === brandName;
+        {competitorVisibility.map((competitor, idx) => {
+          const isPrimaryBrand = competitor.brand === brandName;
           const barColor = isPrimaryBrand ? "bg-primary" : "bg-slate-400";
           
           return (
-            <div key={competitor.name} className="flex items-center gap-3">
+            <div key={`competitor-${competitor.brand}-${idx}`} className="flex items-center gap-3">
               <div className="flex items-center gap-2 w-40 flex-shrink-0">
                 {competitor.logo ? (
                   <img 
                     src={competitor.logo} 
-                    alt={competitor.name} 
+                    alt={competitor.brand} 
                     className="w-5 h-5 rounded-full object-contain bg-white"
                     onError={(e) => { e.currentTarget.style.display = 'none'; }}
                   />
@@ -43,11 +43,11 @@ export const CompetitorMentions = () => {
                   <div className={`w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold ${
                     isPrimaryBrand ? 'bg-primary text-primary-foreground' : 'bg-muted text-muted-foreground'
                   }`}>
-                    {competitor.name[0]}
+                    {competitor.brand[0]}
                   </div>
                 )}
                 <span className={`text-sm truncate ${isPrimaryBrand ? "text-primary font-semibold" : "text-foreground"}`}>
-                  {competitor.name}
+                  {competitor.brand}
                 </span>
               </div>
               <div className="flex-1 h-2 bg-muted rounded-full overflow-hidden">

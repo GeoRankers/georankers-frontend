@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { useAuth } from "@/contexts/auth-context";
 import { regenerateAnalysis } from "@/apiHelpers";
 import { useToast } from "@/hooks/use-toast";
+import { useAnalysisState } from "@/hooks/useAnalysisState";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -513,46 +514,27 @@ export const Header = () => {
   const [isRegenerating, setIsRegenerating] = useState(false);
   const [isGeneratingReport, setIsGeneratingReport] = useState(false);
   const [productId, setProductId] = useState<string | null>(null);
-  const [analysisActionLocked, setAnalysisActionLocked] = useState(false);
+  
   const location = useLocation();
   const navigate = useNavigate();
   const { user, logout, products } = useAuth();
   const { toast } = useToast();
-  const { setActiveTab, isLoading, dataReady, isNewAnalysis } = useResults();
+  const { setActiveTab, isLoading, dataReady, isAnalyzing } = useResults();
   const { toggleSidebar } = useSidebar();
+  const { isAnalyzing: analysisLocked, startAnalysis, completeAnalysis } = useAnalysisState();
 
-  const ANALYSIS_LOCK_KEY = "new_results_analysis_action_lock";
+  // Analysis is in progress if loading and no data ready yet, OR if analyzing via hook
+  const isAnalysisInProgress = (isLoading && !dataReady) || isAnalyzing;
 
-  // Analysis is in progress if loading and no data ready yet, OR if new analysis was triggered
-  const isAnalysisInProgress = (isLoading && !dataReady) || isNewAnalysis;
-
-  // Restore lock (keeps buttons disabled after triggering new analysis until fresh data is ready)
+  // Clear regenerating state once data is ready
   useEffect(() => {
-    try {
-      const lock = localStorage.getItem(ANALYSIS_LOCK_KEY);
-      if (lock) {
-        console.log("🔒 [HEADER] Analysis lock found - disabling actions");
-        setAnalysisActionLocked(true);
-      }
-    } catch {
-      // ignore
-    }
-  }, [location]);
-
-  // Clear lock once new data is ready
-  useEffect(() => {
-    if (dataReady && !isLoading) {
-      setAnalysisActionLocked(false);
+    if (dataReady && !isLoading && !isAnalyzing) {
       setIsRegenerating(false);
-      try {
-        localStorage.removeItem(ANALYSIS_LOCK_KEY);
-      } catch {
-        // ignore
-      }
+      completeAnalysis();
     }
-  }, [dataReady, isLoading]);
+  }, [dataReady, isLoading, isAnalyzing, completeAnalysis]);
 
-  const actionsDisabled = isAnalysisInProgress || isRegenerating || analysisActionLocked;
+  const actionsDisabled = isAnalysisInProgress || isRegenerating || analysisLocked;
 
   useEffect(() => {
     const storedProductId = localStorage.getItem("product_id");
@@ -597,12 +579,7 @@ export const Header = () => {
     if (actionsDisabled) return;
 
     setIsRegenerating(true);
-    setAnalysisActionLocked(true);
-    try {
-      localStorage.setItem(ANALYSIS_LOCK_KEY, String(Date.now()));
-    } catch {
-      // ignore
-    }
+    startAnalysis(productId);
 
     try {
       const accessToken = localStorage.getItem("access_token") || "";
@@ -615,7 +592,7 @@ export const Header = () => {
         duration: 10000,
       });
 
-      // NOTE: keep locked until dataReady becomes true
+      // NOTE: keep locked until dataReady becomes true (handled by useEffect)
     } catch (error) {
       toast({
         title: "Error",
@@ -624,12 +601,7 @@ export const Header = () => {
       });
 
       setIsRegenerating(false);
-      setAnalysisActionLocked(false);
-      try {
-        localStorage.removeItem(ANALYSIS_LOCK_KEY);
-      } catch {
-        // ignore
-      }
+      completeAnalysis();
     }
   };
 
@@ -798,7 +770,7 @@ export const Header = () => {
 
           <div className="flex items-center gap-1.5 md:gap-3">
             {/* Analysis in Progress Animation - beside New Analysis button */}
-            {(isAnalysisInProgress || isRegenerating || analysisActionLocked) && (
+            {(isAnalysisInProgress || isRegenerating || analysisLocked) && (
               <div className="flex items-center">
                 <AnalyzingAnimation />
               </div>

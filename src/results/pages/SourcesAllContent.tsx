@@ -301,7 +301,7 @@ const SourcesAllContent = () => {
                       {brandData.count}
                     </span>
                     <span className="text-[10px] text-muted-foreground mt-1">
-                      Your brands mentions
+                      Your brand's mentions
                     </span>
                   </div>
 

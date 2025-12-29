@@ -65,7 +65,7 @@ const PromptsContent = () => {
     0
   );
 
-  // Get brands to display for a keyword - includes our brand even if score is 0
+  // Get brands to display for a keyword - includes our brand even if score is 0, placed at the end
   const getBrandsForKeyword = (keywordId: string) => {
     // Get all brands with mentions > 0
     const brandsWithMentions = brandInfo.filter(
@@ -73,24 +73,33 @@ const PromptsContent = () => {
     );
 
     // Check if our brand is in the list
-    const ourBrandInList = brandsWithMentions.some(
+    const ourBrandIndex = brandsWithMentions.findIndex(
       (b) => b.brand === brandName
     );
 
-    // If our brand is not in the list, add it with 0 mentions
-    if (!ourBrandInList) {
-      const ourBrand = brandInfo.find((b) => b.brand === brandName);
-      if (ourBrand) {
-        brandsWithMentions.push(ourBrand);
-      }
+    let ourBrand = null;
+    
+    // If our brand is in the list, remove it to add at the end
+    if (ourBrandIndex !== -1) {
+      ourBrand = brandsWithMentions.splice(ourBrandIndex, 1)[0];
+    } else {
+      // If our brand is not in the list, find it and prepare to add with 0 mentions
+      ourBrand = brandInfo.find((b) => b.brand === brandName);
     }
 
     // Sort by mentions (highest first)
-    return brandsWithMentions.sort(
+    brandsWithMentions.sort(
       (a, b) =>
         (b.mention_breakdown?.[keywordId] || 0) -
         (a.mention_breakdown?.[keywordId] || 0)
     );
+
+    // Add our brand at the end
+    if (ourBrand) {
+      brandsWithMentions.push(ourBrand);
+    }
+
+    return brandsWithMentions;
   };
 
   return (
@@ -196,7 +205,7 @@ const PromptsContent = () => {
                       {brandScore}
                     </span>
                     <span className="text-[10px] text-muted-foreground mt-1">
-                      mentions
+                      Your brand's mention
                     </span>
                   </div>
 

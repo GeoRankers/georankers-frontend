@@ -1,5 +1,5 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Legend, Cell } from 'recharts';
-import { getKeywords, getBrandName, competitorData, getBrandInfoWithLogos } from "@/results/data/analyticsData";
+import { getKeywords, getBrandName, getCompetitorData, getBrandInfoWithLogos } from "@/results/data/analyticsData";
 import { Target } from "lucide-react";
 
 const COLORS = [
@@ -15,12 +15,13 @@ export const KeywordPerformanceChart = () => {
   const keywords = getKeywords();
   const brandName = getBrandName();
   const brandInfoWithLogos = getBrandInfoWithLogos();
+  const competitorDataList = getCompetitorData();
   
   // Build chart data: for each keyword, show all competitors' scores
   const chartData = keywords.map((keyword, keywordIdx) => {
     const dataPoint: any = { keyword: keyword.length > 25 ? keyword.substring(0, 25) + '...' : keyword };
     
-    competitorData.forEach((competitor) => {
+    competitorDataList.forEach((competitor) => {
       dataPoint[competitor.name] = competitor.keywordScores[keywordIdx] || 0;
     });
     
@@ -28,7 +29,7 @@ export const KeywordPerformanceChart = () => {
   });
 
   // Get unique competitor names for the bars
-  const competitorNames = competitorData.map(c => c.name);
+  const competitorNames = competitorDataList.map(c => c.name);
 
   return (
     <div className="bg-card rounded-xl border border-border p-6">

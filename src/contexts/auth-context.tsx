@@ -213,6 +213,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
      LOGOUT - Clear all stored data
      ===================== */
   const logout = () => {
+    // Clear analysis state (inline to avoid circular deps)
+    try {
+      sessionStorage.removeItem("analysis_state");
+    } catch {
+      // ignore
+    }
+    
     // Clear all localStorage and sessionStorage data
     localStorage.clear();
     sessionStorage.clear();

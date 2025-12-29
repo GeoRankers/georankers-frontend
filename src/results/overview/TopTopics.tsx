@@ -1,15 +1,16 @@
-import { competitorData, getSearchKeywords, getBrandName } from "@/results/data/analyticsData";
+import { getCompetitorData, getSearchKeywords, getBrandName } from "@/results/data/analyticsData";
 import { Link, useNavigate } from "react-router-dom";
 
 export const TopTopics = () => {
   const keywords = getSearchKeywords();
   const brandName = getBrandName();
-  const brand = competitorData.find(c => c.name === brandName);
+  const competitorDataList = getCompetitorData();
+  const brand = competitorDataList.find(c => c.name === brandName);
   const navigate = useNavigate();
 
   const topicsData = keywords.map((keyword, idx) => {
     const score = brand?.keywordScores?.[idx] || 0;
-    const maxScore = Math.max(...competitorData.map(c => c.keywordScores?.[idx] || 0));
+    const maxScore = Math.max(...competitorDataList.map(c => c.keywordScores?.[idx] || 0));
     const visibility = maxScore > 0 ? Math.round((score / maxScore) * 100) : 0;
     return { name: keyword, mentions: score, responses: 4, visibility };
   });

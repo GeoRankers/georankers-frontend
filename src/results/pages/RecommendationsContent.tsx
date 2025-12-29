@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { getRecommendations, getBrandName } from "@/results/data/analyticsData";
 import {
   Lightbulb,
@@ -11,6 +12,7 @@ import {
 const RecommendationsContent = () => {
   const brandName = getBrandName();
   const recommendations = getRecommendations();
+  const [activeFilter, setActiveFilter] = useState<"all" | "high" | "medium" | "quick">("all");
 
   const getEffortConfig = (effort: string) => {
     switch (effort) {
@@ -74,6 +76,23 @@ const RecommendationsContent = () => {
   const mediumImpact = recommendations.filter(
     (r: any) => r.impact === "Medium"
   );
+  const quickWins = recommendations.filter((r: any) => r.overall_effort === "Low" && r.impact === "High");
+
+  // Filter recommendations based on active filter
+  const filteredRecommendations = () => {
+    switch (activeFilter) {
+      case "high":
+        return highImpact;
+      case "medium":
+        return mediumImpact;
+      case "quick":
+        return quickWins;
+      default:
+        return recommendations;
+    }
+  };
+
+  const displayedRecommendations = filteredRecommendations();
 
   return (
     <div className="p-3 md:p-6 space-y-4 md:space-y-6 w-full max-w-full overflow-x-hidden">
@@ -96,18 +115,25 @@ const RecommendationsContent = () => {
           </div>
           <div className="text-center sm:text-right">
             <div className="text-2xl md:text-3xl font-bold text-amber-500">
-              {recommendations.length}
+              {displayedRecommendations.length}
             </div>
             <div className="text-[10px] md:text-xs text-muted-foreground">
-              Action Items
+              {activeFilter === "all" ? "Action Items" : "Filtered Items"}
             </div>
           </div>
         </div>
       </div>
 
-      {/* Quick Stats */}
+      {/* Quick Stats - Now Clickable Filters */}
       <div className="grid grid-cols-3 gap-2 md:gap-4">
-        <div className="bg-green-500/10 rounded-lg md:rounded-xl border border-green-500/20 p-3 md:p-5">
+        <button
+          onClick={() => setActiveFilter(activeFilter === "high" ? "all" : "high")}
+          className={`transition-all rounded-lg md:rounded-xl border p-3 md:p-5 text-left ${
+            activeFilter === "high"
+              ? "bg-green-500/30 border-green-500/50 shadow-lg scale-105"
+              : "bg-green-500/10 border-green-500/20 hover:bg-green-500/15"
+          }`}
+        >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3">
             <div className="flex items-center gap-1.5 md:gap-3">
               <Zap className="w-4 h-4 md:w-5 md:h-5 text-green-500" />
@@ -119,8 +145,15 @@ const RecommendationsContent = () => {
               {highImpact.length}
             </span>
           </div>
-        </div>
-        <div className="bg-amber-500/10 rounded-lg md:rounded-xl border border-amber-500/20 p-3 md:p-5">
+        </button>
+        <button
+          onClick={() => setActiveFilter(activeFilter === "medium" ? "all" : "medium")}
+          className={`transition-all rounded-lg md:rounded-xl border p-3 md:p-5 text-left ${
+            activeFilter === "medium"
+              ? "bg-amber-500/30 border-amber-500/50 shadow-lg scale-105"
+              : "bg-amber-500/10 border-amber-500/20 hover:bg-amber-500/15"
+          }`}
+        >
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3">
             <div className="flex items-center gap-1.5 md:gap-3">
               <TrendingUp className="w-4 h-4 md:w-5 md:h-5 text-amber-500" />
@@ -132,30 +165,65 @@ const RecommendationsContent = () => {
               {mediumImpact.length}
             </span>
           </div>
-        </div>
-        <div className="bg-muted rounded-lg md:rounded-xl border border-border p-3 md:p-5">
+        </button>
+        <button
+          onClick={() => setActiveFilter(activeFilter === "quick" ? "all" : "quick")}
+          className={`relative group transition-all rounded-lg md:rounded-xl border p-3 md:p-5 text-left ${
+            activeFilter === "quick"
+              ? "bg-primary/30 border-primary/50 shadow-lg scale-105"
+              : "bg-muted border-border hover:bg-muted/80"
+          }`}
+        >
+          {/* Tooltip */}
+          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 px-3 py-2 bg-popover text-popover-foreground text-xs rounded-lg shadow-lg border border-border opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none whitespace-nowrap z-10">
+            Low effort, high value actions
+            <div className="absolute top-full left-1/2 -translate-x-1/2 -mt-1 border-4 border-transparent border-t-popover"></div>
+          </div>
+          
           <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-1 md:gap-3">
             <div className="flex items-center gap-1.5 md:gap-3">
-              <CheckCircle className="w-4 h-4 md:w-5 md:h-5 text-muted-foreground" />
+              <CheckCircle className={`w-4 h-4 md:w-5 md:h-5 ${activeFilter === "quick" ? "text-primary" : "text-muted-foreground"}`} />
               <span className="text-[10px] md:text-sm font-medium text-foreground">
                 Quick Wins
               </span>
             </div>
-            <span className="text-xl md:text-2xl font-bold text-foreground">
-              {
-                recommendations.filter((r: any) => r.overall_effort === "Low")
-                  .length
-              }
+            <span className="text-xl md:text-2xl font-bold text-muted-foreground">
+              {quickWins.length}
             </span>
           </div>
-        </div>
+        </button>
       </div>
+
+      {/* Active Filter Indicator */}
+      {activeFilter !== "all" && (
+        <div className="flex items-center justify-between bg-primary/10 border border-primary/20 rounded-lg px-4 py-2">
+          <span className="text-sm text-foreground">
+            Showing {activeFilter === "high" ? "High Impact" : activeFilter === "medium" ? "Medium Impact" : "Quick Wins"} recommendations
+          </span>
+          <button
+            onClick={() => setActiveFilter("all")}
+            className="text-xs text-primary hover:underline font-medium"
+          >
+            Clear filter
+          </button>
+        </div>
+      )}
 
       {/* Recommendations List */}
       <div className="space-y-3 md:space-y-4">
-        {recommendations.map((rec: any, index: number) => {
+        {displayedRecommendations.map((rec: any, index: number) => {
           const effortConfig = getEffortConfig(rec.overall_effort);
           const impactConfig = getImpactConfig(rec.impact);
+          
+          // Determine circle color based on active filter
+          let circleConfig = impactConfig;
+          if (activeFilter === "quick") {
+            circleConfig = {
+              bg: "bg-muted",
+              text: "text-muted-foreground",
+              border: "border-border"
+            };
+          }
 
           return (
             <div
@@ -167,7 +235,7 @@ const RecommendationsContent = () => {
                 <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-3 md:gap-4 mb-3 md:mb-4">
                   <div className="flex items-start gap-2 md:gap-4 flex-1">
                     <div
-                      className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${impactConfig.bg} ${impactConfig.text} font-bold text-sm md:text-base`}
+                      className={`flex-shrink-0 w-8 h-8 md:w-10 md:h-10 rounded-full flex items-center justify-center ${circleConfig.bg} ${circleConfig.text} font-bold text-sm md:text-base`}
                     >
                       {index + 1}
                     </div>

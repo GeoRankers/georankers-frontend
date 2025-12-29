@@ -11,7 +11,7 @@ import {
 const BrandSentimentContent = () => {
   const brandName = getBrandName();
   const sentiment = getSentiment();
-  const brandLogo = getBrandLogo(brandName);
+  const brandLogo = getBrandLogo();
   const competitorSentiment = getCompetitorSentiment();
 
   const outlookOrder = { 'Positive': 0, 'Neutral': 1, 'Negative': 2 };

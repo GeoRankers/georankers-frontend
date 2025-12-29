@@ -16,17 +16,17 @@ const COLORS = [
 export const BrandMentionsRadar = () => {
   const keywords = getKeywords();
   const brandName = getBrandName();
-  const competitorData = getCompetitorData();
+  const competitorDataList = getCompetitorData();
   const [selectedKeyword, setSelectedKeyword] = useState<string>('all');
   const [isDropdownOpen, setIsDropdownOpen] = useState(false);
   
   // Get all brands dynamically
-  const allBrands = useMemo(() => competitorData.map(c => c.name), [competitorData]);
+  const allBrands = useMemo(() => competitorDataList.map(c => c.name), [competitorDataList]);
   
   // Chart data: brands on the edges
   const chartData = useMemo(() => {
     return allBrands.map((brand) => {
-      const competitor = competitorData.find(c => c.name === brand);
+      const competitor = competitorDataList.find(c => c.name === brand);
       if (!competitor) return { brand, score: 0 };
       
       if (selectedKeyword === 'all') {
@@ -39,7 +39,7 @@ export const BrandMentionsRadar = () => {
         return { brand, score: keywordIdx >= 0 ? competitor.keywordScores[keywordIdx] || 0 : 0 };
       }
     });
-  }, [allBrands, competitorData, selectedKeyword, keywords]);
+  }, [allBrands, competitorDataList, selectedKeyword, keywords]);
 
   const maxScore = Math.max(...chartData.map(d => d.score), 1);
   
@@ -102,9 +102,9 @@ export const BrandMentionsRadar = () => {
               >
                 All Keywords
               </button>
-              {keywords.map((keyword) => (
+              {keywords.map((keyword, idx) => (
                 <button
-                  key={keyword}
+                  key={`keyword-${idx}`}
                   onClick={() => { setSelectedKeyword(keyword); setIsDropdownOpen(false); }}
                   className={`w-full text-left px-4 py-2 text-sm hover:bg-muted transition-colors ${
                     selectedKeyword === keyword ? 'bg-primary/10 text-primary font-medium' : 'text-foreground'

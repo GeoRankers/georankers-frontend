@@ -5,11 +5,11 @@ import { getCompetitorVisibility, getBrandName } from "@/results/data/analyticsD
 export const HeroCard = () => {
   const brandName = getBrandName();
   const competitorVisibility = getCompetitorVisibility();
-  const topTwo = competitorVisibility.filter(c => c.name !== brandName).slice(0, 2);
-  const brand = competitorVisibility.find(c => c.name === brandName);
+  const topTwo = competitorVisibility.filter(c => c.brand !== brandName).slice(0, 2);
+  const brand = competitorVisibility.find(c => c.brand === brandName);
 
   const displayData = [
-    ...topTwo.map(c => ({ name: c.name, visibility: c.visibility, isBrand: false, logo: c.logo })),
+    ...topTwo.map(c => ({ name: c.brand, visibility: c.visibility, isBrand: false, logo: c.logo })),
     { name: brandName, visibility: brand?.visibility || 0, isBrand: true, logo: brand?.logo || '' }
   ];
 

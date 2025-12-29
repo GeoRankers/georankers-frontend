@@ -35,7 +35,7 @@ const CompetitorsComparisonsContent = () => {
   const brandInfo = getBrandInfoWithLogos();
   const competitorData = getCompetitorData();
   const competitorSentiment = getCompetitorSentiment();
-  const sourcesData = getSourcesData();
+  const sourcesDataRaw = getSourcesData();
 
   const otherCompetitors = competitorData.filter((c) => c.name !== brandName);
   const [selectedCompetitor, setSelectedCompetitor] = useState<string>("");
@@ -47,9 +47,9 @@ const CompetitorsComparisonsContent = () => {
     }
   }, [otherCompetitors, selectedCompetitor]);
 
-  const brand = competitorVisibility.find((c) => c.name === brandName);
+  const brand = competitorVisibility.find((c) => c.brand === brandName);
   const competitor = competitorVisibility.find(
-    (c) => c.name === selectedCompetitor
+    (c) => c.brand === selectedCompetitor
   );
 
   const brandSentiment = competitorSentiment.find((s) => s.brand === brandName);
@@ -61,7 +61,7 @@ const CompetitorsComparisonsContent = () => {
   const competitorLogo = getBrandLogo(selectedCompetitor);
 
   const sortedCompetitorData = useMemo(() => {
-    return [...competitorData].sort((a, b) => {
+    const sorted = [...competitorData].sort((a, b) => {
       const totalA = a.keywordScores.reduce(
         (sum, score) => sum + (Number(score) || 0),
         0
@@ -72,12 +72,65 @@ const CompetitorsComparisonsContent = () => {
       );
       return totalB - totalA;
     });
-  }, [competitorData]);
 
-  // Get all brand names for the source citations table
+    // Move primary brand to the end
+    const primaryBrandIndex = sorted.findIndex((c) => c.name === brandName);
+    if (primaryBrandIndex !== -1) {
+      const primaryBrand = sorted.splice(primaryBrandIndex, 1)[0];
+      sorted.push(primaryBrand);
+    }
+
+    return sorted;
+  }, [competitorData, brandName]);
+
+  // Sort competitor sentiment with primary brand at the end
+  const sortedCompetitorSentiment = useMemo(() => {
+    const sorted = [...competitorSentiment];
+    const primaryBrandIndex = sorted.findIndex((s) => s.brand === brandName);
+    if (primaryBrandIndex !== -1) {
+      const primaryBrand = sorted.splice(primaryBrandIndex, 1)[0];
+      sorted.push(primaryBrand);
+    }
+    return sorted;
+  }, [competitorSentiment, brandName]);
+
+  // Get all brand names for the source citations table with primary brand at the end
   const allBrandNames = useMemo(() => {
-    return competitorData.map((c) => c.name);
-  }, [competitorData]);
+    const brands = competitorData.map((c) => c.name);
+    const primaryBrandIndex = brands.findIndex((b) => b === brandName);
+    if (primaryBrandIndex !== -1) {
+      const primaryBrand = brands.splice(primaryBrandIndex, 1)[0];
+      brands.push(primaryBrand);
+    }
+    return brands;
+  }, [competitorData, brandName]);
+
+  // Convert sourcesData object to array format with correct structure
+  const sourcesData = useMemo(() => {
+    if (!sourcesDataRaw || typeof sourcesDataRaw !== 'object') {
+      return [];
+    }
+
+    return Object.entries(sourcesDataRaw).map(([sourceName, sourceData]: [string, any]) => {
+      const row: any = { name: sourceName };
+      
+      // Extract mentions for each brand from the nested mentions object
+      if (sourceData && sourceData.mentions && typeof sourceData.mentions === 'object') {
+        allBrandNames.forEach(brand => {
+          const brandMentionData = sourceData.mentions[brand];
+          // Get the count from the brand's mention data
+          row[`${brand}Mentions`] = brandMentionData?.count || 0;
+        });
+      } else {
+        // If no mentions data, set all brands to 0
+        allBrandNames.forEach(brand => {
+          row[`${brand}Mentions`] = 0;
+        });
+      }
+      
+      return row;
+    });
+  }, [sourcesDataRaw, allBrandNames]);
 
   return (
     <div className="p-4 md:p-6 space-y-6 w-full max-w-full overflow-x-hidden">
@@ -144,9 +197,9 @@ const CompetitorsComparisonsContent = () => {
                 <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
                   Brand
                 </th>
-                {keywords.map((keyword) => (
+                {keywords.map((keyword, idx) => (
                   <th
-                    key={keyword}
+                    key={`kw-${idx}`}
                     className="text-center py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider"
                   >
                     {keyword}
@@ -163,15 +216,11 @@ const CompetitorsComparisonsContent = () => {
                 return (
                   <tr
                     key={c.name}
-                    className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${
-                      isPrimaryBrand ? "bg-primary/5" : ""
+                    className={`border-b border-border/50 transition-colors ${
+                      isPrimaryBrand ? "bg-primary/20" : ""
                     }`}
                   >
-                    <td
-                      className={`py-3 px-4 font-medium ${
-                        isPrimaryBrand ? "text-primary" : "text-foreground"
-                      }`}
-                    >
+                    <td className="py-3 px-4 font-medium text-foreground">
                       <div className="flex items-center gap-2">
                         {c.logo ? (
                           <img
@@ -266,20 +315,16 @@ const CompetitorsComparisonsContent = () => {
               </tr>
             </thead>
             <tbody>
-              {competitorSentiment.map((sentiment) => {
+              {sortedCompetitorSentiment.map((sentiment) => {
                 const isPrimaryBrand = sentiment.brand === brandName;
                 return (
                   <tr
                     key={sentiment.brand}
-                    className={`border-b border-border/50 hover:bg-muted/20 transition-colors ${
-                      isPrimaryBrand ? "bg-primary/5" : ""
+                    className={`border-b border-border/50 transition-colors ${
+                      isPrimaryBrand ? "bg-primary/20" : ""
                     }`}
                   >
-                    <td
-                      className={`py-3 px-4 font-medium ${
-                        isPrimaryBrand ? "text-primary" : "text-foreground"
-                      }`}
-                    >
+                    <td className="py-3 px-4 font-medium text-foreground">
                       <div className="flex items-center gap-2">
                         {sentiment.logo ? (
                           <img
@@ -321,86 +366,98 @@ const CompetitorsComparisonsContent = () => {
       </div>
 
       {/* Card 3: Number of Source Citations */}
-      <div className="bg-card rounded-xl border border-border overflow-hidden">
-        <div className="p-4 md:p-6 border-b border-border">
-          <div className="flex items-center gap-2">
-            <Layers className="w-5 h-5 text-primary" />
-            <h3 className="text-lg font-semibold text-foreground">
-              Source Authority Map
-            </h3>
-            <Tooltip>
-              <TooltipTrigger>
-                <Info className="w-4 h-4 text-muted-foreground cursor-help" />
-              </TooltipTrigger>
-              <TooltipContent className="max-w-xs bg-card border border-border">
-                <p>
-                  Mentions of each brand across different sources as referenced
-                  by AI models.
-                </p>
-              </TooltipContent>
-            </Tooltip>
+      {sourcesData.length > 0 && (
+        <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="p-4 md:p-6 border-b border-border">
+            <div className="flex items-center gap-2">
+              <Layers className="w-5 h-5 text-primary" />
+              <h3 className="text-lg font-semibold text-foreground">
+                Source Authority Map
+              </h3>
+              <Tooltip>
+                <TooltipTrigger>
+                  <Info className="w-4 h-4 text-muted-foreground cursor-help" />
+                </TooltipTrigger>
+                <TooltipContent className="max-w-xs bg-card border border-border">
+                  <p>
+                    Mentions of each brand across different sources as referenced
+                    by AI models.
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </div>
+            <p className="text-sm text-muted-foreground mt-1">
+              Which content channels are driving AI recommendations
+            </p>
           </div>
-          <p className="text-sm text-muted-foreground mt-1">
-            Which content channels are driving AI recommendations
-          </p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-border bg-muted/30">
-                <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider">
-                  Source
-                </th>
-                {allBrandNames.map((brand) => (
-                  <th
-                    key={brand}
-                    className={`text-center py-3 px-4 text-xs font-semibold uppercase tracking-wider ${
-                      brand === brandName
-                        ? "text-primary"
-                        : "text-muted-foreground"
-                    }`}
-                  >
-                    {brand}
+          <div className="overflow-x-auto">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-border bg-muted/30">
+                  <th className="text-left py-3 px-4 text-xs font-semibold text-muted-foreground uppercase tracking-wider min-w-[200px]">
+                    Source
                   </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {sourcesData.map((source: any) => (
-                <tr
-                  key={source.name}
-                  className="border-b border-border/50 hover:bg-muted/20 transition-colors"
-                >
-                  <td className="py-3 px-4 font-medium text-foreground text-sm">
-                    {source.name}
-                  </td>
                   {allBrandNames.map((brand) => {
-                    const mentions = source[`${brand}Mentions`] || 0;
                     const isPrimaryBrand = brand === brandName;
                     return (
-                      <td key={brand} className="py-3 px-4 text-center">
-                        <span
-                          className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
+                      <th
+                        key={brand}
+                        className={`text-center py-3 px-4 text-xs font-semibold uppercase tracking-wider min-w-[100px] ${
+                          isPrimaryBrand
+                            ? "bg-primary/30"
+                            : "text-muted-foreground"
+                        }`}
+                      >
+                        <div className="truncate" title={brand}>
+                          {brand}
+                        </div>
+                      </th>
+                    );
+                  })}
+                </tr>
+              </thead>
+              <tbody>
+                {sourcesData.map((source: any) => (
+                  <tr
+                    key={source.name}
+                    className="border-b border-border/50 hover:bg-muted/20 transition-colors"
+                  >
+                    <td className="py-3 px-4 font-medium text-foreground text-sm">
+                      {source.name}
+                    </td>
+                    {allBrandNames.map((brand) => {
+                      const mentions = source[`${brand}Mentions`] || 0;
+                      const isPrimaryBrand = brand === brandName;
+                      return (
+                        <td
+                          key={brand}
+                          className={`py-3 px-4 text-center ${
+                            isPrimaryBrand ? "bg-primary/5" : ""
+                          }`}
+                        >
+                          <span
+                            className={`inline-flex items-center justify-center w-8 h-8 rounded-full text-sm font-bold ${
                             isPrimaryBrand
                               ? mentions > 0
-                                ? "bg-primary/20 text-primary"
+                                ? "bg-blue-500/20 text-black-500"
                                 : "bg-red-500/20 text-red-500"
                               : mentions > 0
                               ? "bg-green-500/20 text-green-500"
                               : "bg-red-500/20 text-red-500"
                           }`}
-                        >
-                          {mentions}
-                        </span>
-                      </td>
-                    );
-                  })}
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                          >
+                            {mentions}
+                          </span>
+                        </td>
+                      );
+                    })}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
-      </div>
+      )}
     </div>
   );
 };
