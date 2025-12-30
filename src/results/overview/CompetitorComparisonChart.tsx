@@ -41,12 +41,13 @@ export const CompetitorComparisonChart = () => {
     return map;
   }, [brandInfo, brandName]);
 
-  // Keep brand at top, maintain original order for others
+  // Keep brand at top, REVERSE competitors to show them in ascending order (lowest first)
   const sortedBrands = useMemo(() => {
     const myBrand = brandInfo.find(b => b.brand === brandName);
     const competitors = brandInfo.filter(b => b.brand !== brandName);
     
-    return myBrand ? [myBrand, ...competitors] : competitors;
+    // FIXED: Reverse competitors so lowest scores appear at bottom
+    return myBrand ? [myBrand, ...competitors.reverse()] : competitors.reverse();
   }, [brandInfo, brandName]);
 
   const chartData = useMemo(() => {

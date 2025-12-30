@@ -331,9 +331,9 @@ const OverviewContent = () => {
               })}
             </div>
 
-            {mentionsInsight && (
+            {visibilityData.brandPosition > 0 && visibilityInsight && (
               <p className="text-sm text-foreground font-medium border-t pt-3 mt-4">
-                {mentionsInsight}
+                {visibilityInsight}
               </p>
             )}
           </div>

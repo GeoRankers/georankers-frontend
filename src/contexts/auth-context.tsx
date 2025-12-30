@@ -6,6 +6,8 @@ import {
   RegisterRequest,
   RegisterResponse,
 } from "@/apiHelpers";
+import { setCurrentUserEmail, clearCurrentUserEmail } from "@/results/data/analyticsData";
+import { setAnalysisUserEmail, clearAnalysisUserEmail } from "@/hooks/useAnalysisState";
 
 /* =====================
    TYPES
@@ -120,6 +122,10 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         console.log('Auth context: User set:', extendedUser);
 
+        // Set user email for analytics data mapping and analysis state scoping
+        setCurrentUserEmail(email);
+        setAnalysisUserEmail(email);
+
         // Save first name to localStorage
         localStorage.setItem("first_name", extendedUser.first_name);
 
@@ -210,19 +216,39 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   };
 
   /* =====================
-     LOGOUT - Clear all stored data
+     LOGOUT - Clear session data but preserve analytics
      ===================== */
   const logout = () => {
-    // Clear analysis state (inline to avoid circular deps)
-    try {
-      sessionStorage.removeItem("analysis_state");
-    } catch {
-      // ignore
-    }
+    // NOTE: Do NOT clear analysis state on logout - it should persist per email
+    // The analysis state is email-scoped in sessionStorage and should remain
+    // so when the user logs back in, they see their analysis is still running
     
-    // Clear all localStorage and sessionStorage data
-    localStorage.clear();
-    sessionStorage.clear();
+    // Clear user email references (but keep email-scoped data)
+    clearAnalysisUserEmail();
+    clearCurrentUserEmail();
+    
+    // Clear only session-related items, NOT analytics data or analysis state
+    const sessionItems = [
+      'access_token',
+      'refresh_token',
+      'application_id',
+      'applications',
+      'products',
+      'first_name',
+      'product_id',
+      // Note: 'user_email' is kept in localStorage to help restore state on login
+    ];
+    
+    sessionItems.forEach(key => {
+      try {
+        localStorage.removeItem(key);
+      } catch {
+        // ignore
+      }
+    });
+    
+    // Do NOT clear sessionStorage - analysis state is stored there per email
+    // sessionStorage.clear(); // REMOVED - this was wiping analysis state
     
     // Reset state
     setUser(null);
