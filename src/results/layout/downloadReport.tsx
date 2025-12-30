@@ -10,6 +10,14 @@ import {
   getLlmData,
   getAIVisibilityMetrics,
   getMentionsPosition,
+  getPlatformPresence,
+  getCompetitorSentiment,
+  getBrandLogo,
+  getModelName,
+  getAnalysisDate,
+  getAnalysisKeywords,
+  getSentiment,
+  getBrandMentionResponseRates,
 } from '@/results/data/analyticsData';
 
 // Type definitions
@@ -34,21 +42,27 @@ interface LlmDataItem {
   t3?: number;
 }
 
+interface BrandInfo {
+  brand: string;
+  geo_score: number;
+  mention_score: number;
+  mention_count: number;
+  logo: string;
+  geo_tier: string;
+  mention_tier: string;
+  summary: string;
+  outlook: string;
+  mention_breakdown: Record<string, number> | null;
+}
+
 interface PrintableContentProps {
   brandName: string;
   brandWebsite: string;
-  brandInfo: Array<{
-    brand: string;
-    geo_score: number;
-    mention_score: number;
-    mention_count: number;
-    logo: string;
-    geo_tier: string;
-    mention_tier: string;
-    summary: string;
-    outlook: string;
-    mention_breakdown: Record<string, number> | null;
-  }>;
+  brandLogo: string;
+  modelName: string;
+  analysisDate: string;
+  analysisKeywords: string[];
+  brandInfo: BrandInfo[];
   executiveSummary: {
     brand_score_and_tier?: string;
     strengths?: string[];
@@ -85,12 +99,20 @@ interface PrintableContentProps {
     allBrandMentions: Record<string, number>;
   };
   sourcesAndContentImpact: Record<string, SourceData>;
+  platformPresence: Record<string, string>;
+  competitorSentiment: Array<{ brand: string; outlook: string; summary: string; logo: string }>;
+  sentiment: { dominant_sentiment: string; summary: string };
+  brandMentionRates: Array<{ brand: string; responseRate: number; isTestBrand: boolean }>;
 }
 
 // Printable Report Component
 const PrintableContent = ({
   brandName,
   brandWebsite,
+  brandLogo,
+  modelName,
+  analysisDate,
+  analysisKeywords,
   brandInfo,
   executiveSummary,
   recommendations,
@@ -99,6 +121,10 @@ const PrintableContent = ({
   aiVisibility,
   mentionsData,
   sourcesAndContentImpact,
+  platformPresence,
+  competitorSentiment,
+  sentiment,
+  brandMentionRates,
 }: PrintableContentProps) => {
   // Styles
   const styles = {
@@ -112,8 +138,8 @@ const PrintableContent = ({
     },
     coverPage: {
       textAlign: 'center' as const,
-      paddingTop: '200px',
-      paddingBottom: '200px',
+      paddingTop: '180px',
+      paddingBottom: '180px',
       pageBreakAfter: 'always' as const,
       borderBottom: '3px solid #2563eb',
     },
@@ -133,7 +159,7 @@ const PrintableContent = ({
     websiteText: {
       fontSize: '16px',
       color: '#6b7280',
-      marginBottom: '60px',
+      marginBottom: '40px',
     },
     dateText: {
       fontSize: '14px',
@@ -249,6 +275,16 @@ const PrintableContent = ({
       color: '#9ca3af',
       fontSize: '10pt',
     },
+    brandInfoBar: {
+      display: 'flex',
+      alignItems: 'center',
+      gap: '20px',
+      padding: '20px',
+      backgroundColor: '#f9fafb',
+      borderRadius: '8px',
+      border: '1px solid #e5e7eb',
+      marginBottom: '24px',
+    },
   };
 
   // Helper function for tier badges
@@ -256,10 +292,13 @@ const PrintableContent = ({
     const baseStyle = { ...styles.badge };
     switch (tier?.toLowerCase()) {
       case 'high':
+      case 'positive':
         return { ...baseStyle, backgroundColor: '#d1fae5', color: '#065f46' };
       case 'medium':
+      case 'neutral':
         return { ...baseStyle, backgroundColor: '#fef3c7', color: '#92400e' };
       case 'low':
+      case 'negative':
         return { ...baseStyle, backgroundColor: '#fee2e2', color: '#991b1b' };
       default:
         return { ...baseStyle, backgroundColor: '#f3f4f6', color: '#374151' };
@@ -305,16 +344,69 @@ const PrintableContent = ({
   // Sort brands by geo_score for consistent display
   const sortedBrands = [...brandInfo].sort((a, b) => b.geo_score - a.geo_score);
 
+  // Get models array
+  const models = modelName?.split(",").map((m) => m.trim()).filter(m => m === 'openai' || m === 'gemini') || [];
+
+  // Get brand score for a keyword
+  const getBrandScoreForKeyword = (keywordId: string) => {
+    const brand = brandInfo.find((b) => b.brand === brandName);
+    return brand?.mention_breakdown?.[keywordId] || 0;
+  };
+
+  // Get brands for a keyword
+  const getBrandsForKeyword = (keywordId: string) => {
+    const brandsWithMentions = brandInfo.filter(
+      (b) => (b.mention_breakdown?.[keywordId] || 0) > 0
+    );
+    
+    const ourBrandIndex = brandsWithMentions.findIndex((b) => b.brand === brandName);
+    let ourBrand = null;
+    
+    if (ourBrandIndex !== -1) {
+      ourBrand = brandsWithMentions.splice(ourBrandIndex, 1)[0];
+    } else {
+      ourBrand = brandInfo.find((b) => b.brand === brandName);
+    }
+    
+    brandsWithMentions.sort(
+      (a, b) =>
+        (b.mention_breakdown?.[keywordId] || 0) -
+        (a.mention_breakdown?.[keywordId] || 0)
+    );
+    
+    if (ourBrand) {
+      brandsWithMentions.push(ourBrand);
+    }
+    
+    return brandsWithMentions;
+  };
+
   return (
     <div style={styles.page}>
       {/* Cover Page */}
       <div style={styles.coverPage}>
+        {brandLogo && (
+          <div style={{ marginBottom: '30px' }}>
+            <img 
+              src={brandLogo} 
+              alt={brandName}
+              style={{ width: '80px', height: '80px', objectFit: 'contain', margin: '0 auto' }}
+            />
+          </div>
+        )}
         <h1 style={styles.mainTitle}>AI Visibility Analysis Report</h1>
         <h2 style={styles.brandTitle}>{brandName}</h2>
         <p style={styles.websiteText}>{brandWebsite}</p>
-        <div style={{ marginTop: '80px' }}>
+        <div style={{ marginTop: '40px' }}>
+          <div style={{ display: 'flex', justifyContent: 'center', gap: '16px', marginBottom: '20px', flexWrap: 'wrap' }}>
+            {models.map((model, idx) => (
+              <span key={idx} style={{ ...styles.badge, backgroundColor: '#e0e7ff', color: '#3730a3' }}>
+                {model === 'openai' ? 'ChatGPT' : model.charAt(0).toUpperCase() + model.slice(1)}
+              </span>
+            ))}
+          </div>
           <p style={styles.dateText}>
-            Report Generated: {new Date().toLocaleDateString('en-US', { 
+            Report Generated: {analysisDate || new Date().toLocaleDateString('en-US', { 
               weekday: 'long',
               year: 'numeric', 
               month: 'long', 
@@ -328,45 +420,81 @@ const PrintableContent = ({
       <div style={{ pageBreakAfter: 'always' }}>
         <h2 style={styles.sectionHeader}>Table of Contents</h2>
         <div style={{ paddingLeft: '20px', lineHeight: '2' }}>
-          <p><strong>1. Executive Overview</strong> ..................................................... 3</p>
-          <p style={{ paddingLeft: '20px' }}>1.1 Key Metrics Summary</p>
-          <p style={{ paddingLeft: '20px' }}>1.2 Performance Snapshot</p>
-          <p><strong>2. Executive Summary</strong> .................................................... 5</p>
+          <p><strong>1. Brand Overview</strong></p>
+          <p style={{ paddingLeft: '20px' }}>1.1 Brand Information</p>
+          <p style={{ paddingLeft: '20px' }}>1.2 Key Metrics Summary</p>
+          <p style={{ paddingLeft: '20px' }}>1.3 LLM Platform Performance</p>
+          <p style={{ paddingLeft: '20px' }}>1.4 Platform Presence</p>
+          <p><strong>2. Executive Summary</strong></p>
           <p style={{ paddingLeft: '20px' }}>2.1 Brand Score & Positioning</p>
-          <p style={{ paddingLeft: '20px' }}>2.2 Strengths & Weaknesses Analysis</p>
+          <p style={{ paddingLeft: '20px' }}>2.2 Strengths & Weaknesses</p>
           <p style={{ paddingLeft: '20px' }}>2.3 Competitor Positioning</p>
-          <p><strong>3. Detailed Performance Analysis</strong> .................................. 7</p>
-          <p style={{ paddingLeft: '20px' }}>3.1 LLM-wise Performance Breakdown</p>
-          <p style={{ paddingLeft: '20px' }}>3.2 Competitive Landscape</p>
-          <p style={{ paddingLeft: '20px' }}>3.3 Search Query Analysis</p>
-          <p><strong>4. Sources & Content Impact</strong> ....................................... 12</p>
-          <p style={{ paddingLeft: '20px' }}>4.1 Source Category Breakdown</p>
-          <p style={{ paddingLeft: '20px' }}>4.2 Brand Mentions by Source</p>
-          <p><strong>5. Strategic Recommendations</strong> ..................................... 15</p>
-          <p style={{ paddingLeft: '20px' }}>5.1 Prioritized Action Items</p>
-          <p style={{ paddingLeft: '20px' }}>5.2 Implementation Roadmap</p>
-          <p><strong>6. Appendix</strong> ............................................................. 18</p>
-          <p style={{ paddingLeft: '20px' }}>6.1 Competitor Sentiment Analysis</p>
-          <p style={{ paddingLeft: '20px' }}>6.2 Methodology Notes</p>
+          <p><strong>3. AI Prompts & Query Analysis</strong></p>
+          <p style={{ paddingLeft: '20px' }}>3.1 Keywords & Prompts Breakdown</p>
+          <p style={{ paddingLeft: '20px' }}>3.2 Brand Mentions by Keyword</p>
+          <p><strong>4. Competitive Analysis</strong></p>
+          <p style={{ paddingLeft: '20px' }}>4.1 Competitive Landscape</p>
+          <p style={{ paddingLeft: '20px' }}>4.2 Brand Response Rates</p>
+          <p><strong>5. Sources & Content Impact</strong></p>
+          <p style={{ paddingLeft: '20px' }}>5.1 Source Category Breakdown</p>
+          <p style={{ paddingLeft: '20px' }}>5.2 Brand Mentions by Source</p>
+          <p><strong>6. Brand Sentiment Analysis</strong></p>
+          <p style={{ paddingLeft: '20px' }}>6.1 Primary Brand Sentiment</p>
+          <p style={{ paddingLeft: '20px' }}>6.2 Competitor Sentiment Analysis</p>
+          <p><strong>7. Strategic Recommendations</strong></p>
+          <p style={{ paddingLeft: '20px' }}>7.1 Prioritized Action Items</p>
+          <p style={{ paddingLeft: '20px' }}>7.2 Implementation Roadmap</p>
+          <p><strong>8. Appendix</strong></p>
         </div>
       </div>
 
-      {/* Section 1: Executive Overview */}
+      {/* Section 1: Brand Overview */}
       <div style={{ pageBreakAfter: 'always' }}>
-        <h2 style={styles.sectionHeader}>1. Executive Overview</h2>
+        <h2 style={styles.sectionHeader}>1. Brand Overview</h2>
         
-        <h3 style={styles.subsectionHeader}>1.1 Key Metrics Summary</h3>
-        
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '20px', marginBottom: '30px' }}>
+        {/* 1.1 Brand Information */}
+        <h3 style={styles.subsectionHeader}>1.1 Brand Information</h3>
+        <div style={styles.brandInfoBar}>
+          {brandLogo && (
+            <img 
+              src={brandLogo} 
+              alt={brandName}
+              style={{ width: '60px', height: '60px', objectFit: 'contain', borderRadius: '8px', backgroundColor: 'white', padding: '4px' }}
+            />
+          )}
+          <div style={{ flex: 1 }}>
+            <h3 style={{ margin: '0 0 8px 0', fontSize: '20px', fontWeight: '600' }}>{brandName}</h3>
+            <p style={{ margin: '0 0 8px 0', color: '#6b7280', fontSize: '14px' }}>{brandWebsite}</p>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px' }}>
+              {analysisKeywords.map((keyword, idx) => (
+                <span key={idx} style={{ ...styles.badge, backgroundColor: '#e5e7eb', color: '#374151', margin: 0 }}>
+                  {keyword}
+                </span>
+              ))}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <p style={{ margin: '0 0 4px 0', fontSize: '12px', color: '#6b7280' }}>Analysis Date</p>
+            <p style={{ margin: '0 0 8px 0', fontSize: '14px', fontWeight: '600' }}>{analysisDate}</p>
+            <div style={{ display: 'flex', gap: '8px', justifyContent: 'flex-end' }}>
+              {models.map((model, idx) => (
+                <span key={idx} style={{ ...styles.badge, backgroundColor: '#e0e7ff', color: '#3730a3', margin: 0 }}>
+                  {model === 'openai' ? 'ChatGPT' : model.charAt(0).toUpperCase() + model.slice(1)}
+                </span>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* 1.2 Key Metrics Summary */}
+        <h3 style={styles.subsectionHeader}>1.2 Key Metrics Summary</h3>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr', gap: '16px', marginBottom: '30px' }}>
           <div style={styles.metricCard}>
             <div style={styles.metricValue}>{aiVisibility?.score || 0}</div>
             <div style={styles.metricLabel}>AI Visibility Score</div>
             <div style={{ marginTop: '12px' }}>
               <span style={getTierBadgeStyle(aiVisibility?.tier)}>{aiVisibility?.tier || 'N/A'} Tier</span>
             </div>
-            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '12px' }}>
-              Ranked #{aiVisibility?.brandPosition || 0} of {aiVisibility?.totalBrands || 0} brands
-            </p>
           </div>
 
           <div style={styles.metricCard}>
@@ -375,9 +503,6 @@ const PrintableContent = ({
             <div style={{ marginTop: '12px' }}>
               <span style={getTierBadgeStyle(mentionsData?.tier)}>{mentionsData?.tier || 'N/A'} Tier</span>
             </div>
-            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '12px' }}>
-              Ranked #{mentionsData?.position || 0} of {mentionsData?.totalBrands || 0} brands
-            </p>
           </div>
 
           <div style={styles.metricCard}>
@@ -388,14 +513,17 @@ const PrintableContent = ({
                 {keywords.length} Keywords
               </span>
             </div>
-            <p style={{ fontSize: '12px', color: '#6b7280', marginTop: '12px' }}>
-              Across {Object.keys(llmData).length} LLM platforms
-            </p>
+          </div>
+
+          <div style={styles.metricCard}>
+            <div style={styles.metricValue}>{Object.keys(llmData).length}</div>
+            <div style={styles.metricLabel}>LLM Platforms</div>
+            <div style={{ marginTop: '12px' }}>
+              <span style={getTierBadgeStyle(sentiment?.dominant_sentiment)}>{sentiment?.dominant_sentiment}</span>
+            </div>
           </div>
         </div>
 
-        <h3 style={styles.subsectionHeader}>1.2 Performance Snapshot</h3>
-        
         {/* Position Breakdown */}
         {aiVisibility?.positionBreakdown && (
           <div style={styles.card}>
@@ -405,50 +533,85 @@ const PrintableContent = ({
                 <div style={{ fontSize: '32px', fontWeight: '700', color: '#16a34a' }}>
                   {aiVisibility.positionBreakdown.topPosition}%
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>Top 3 Rankings</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>Top Position (#1)</div>
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '32px', fontWeight: '700', color: '#ca8a04' }}>
                   {aiVisibility.positionBreakdown.midPosition}%
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>Position 4-7</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>Mid Position (2-4)</div>
               </div>
               <div style={{ textAlign: 'center' }}>
                 <div style={{ fontSize: '32px', fontWeight: '700', color: '#dc2626' }}>
                   {aiVisibility.positionBreakdown.lowPosition}%
                 </div>
-                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>Position 8+</div>
+                <div style={{ fontSize: '12px', color: '#6b7280', marginTop: '4px' }}>Low Position (5+)</div>
               </div>
             </div>
           </div>
         )}
 
-        {/* LLM Performance Summary */}
-        <div style={styles.card}>
-          <h4 style={styles.subsubsectionHeader}>LLM Performance Overview</h4>
-          <table style={styles.table}>
-            <thead>
-              <tr>
-                <th style={styles.tableHeader}>Platform</th>
-                <th style={styles.tableHeader}>Mentions</th>
-                <th style={styles.tableHeader}>Prompts Analyzed</th>
-                <th style={styles.tableHeader}>Avg Rank</th>
-                <th style={styles.tableHeader}>Sources</th>
+        {/* 1.3 LLM Platform Performance */}
+        <h3 style={styles.subsectionHeader}>1.3 LLM Platform Performance</h3>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.tableHeader}>Platform</th>
+              <th style={styles.tableHeader}>Mentions</th>
+              <th style={styles.tableHeader}>Prompts Analyzed</th>
+              <th style={styles.tableHeader}>Average Rank</th>
+              <th style={styles.tableHeader}>Sources Used</th>
+            </tr>
+          </thead>
+          <tbody>
+            {Object.entries(llmData).map(([llm, data], idx) => (
+              <tr key={idx} style={idx % 2 === 1 ? styles.tableRowAlt : {}}>
+                <td style={{ ...styles.tableCell, fontWeight: '600' }}>
+                  {llm === 'openai' ? 'ChatGPT' : llm.charAt(0).toUpperCase() + llm.slice(1)}
+                </td>
+                <td style={styles.tableCell}>{data.mentions_count}</td>
+                <td style={styles.tableCell}>{totalPrompts}</td>
+                <td style={styles.tableCell}>{data.average_rank > 0 ? `#${data.average_rank.toFixed(1)}` : 'N/A'}</td>
+                <td style={styles.tableCell}>{data.sources}</td>
               </tr>
-            </thead>
-            <tbody>
-              {Object.entries(llmData).map(([llm, data], idx) => (
-                <tr key={idx} style={idx % 2 === 1 ? styles.tableRowAlt : {}}>
-                  <td style={{ ...styles.tableCell, fontWeight: '600', textTransform: 'capitalize' }}>{llm}</td>
-                  <td style={styles.tableCell}>{data.mentions_count}</td>
-                  <td style={styles.tableCell}>{totalPrompts}</td>
-                  <td style={styles.tableCell}>{data.average_rank > 0 ? data.average_rank.toFixed(1) : 'N/A'}</td>
-                  <td style={styles.tableCell}>{data.sources}</td>
+            ))}
+          </tbody>
+        </table>
+
+        {/* 1.4 Platform Presence */}
+        <h3 style={styles.subsectionHeader}>1.4 Platform Presence</h3>
+        {Object.keys(platformPresence).length > 0 ? (
+          <div style={styles.card}>
+            <table style={{ ...styles.table, marginTop: 0 }}>
+              <thead>
+                <tr>
+                  <th style={styles.tableHeader}>Platform</th>
+                  <th style={styles.tableHeader}>Status</th>
+                  <th style={styles.tableHeader}>URL</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {Object.entries(platformPresence).map(([platform, url], idx) => (
+                  <tr key={idx} style={idx % 2 === 1 ? styles.tableRowAlt : {}}>
+                    <td style={{ ...styles.tableCell, fontWeight: '600', textTransform: 'capitalize' }}>
+                      {platform.replace('_', ' ')}
+                    </td>
+                    <td style={styles.tableCell}>
+                      <span style={url ? getTierBadgeStyle('high') : getTierBadgeStyle('low')}>
+                        {url ? 'Active' : 'Not Found'}
+                      </span>
+                    </td>
+                    <td style={{ ...styles.tableCell, fontSize: '9pt', wordBreak: 'break-all' as const }}>
+                      {url || '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p style={{ color: '#6b7280' }}>No platform presence data available.</p>
+        )}
       </div>
 
       {/* Section 2: Executive Summary */}
@@ -459,6 +622,13 @@ const PrintableContent = ({
         {executiveSummary?.brand_score_and_tier && (
           <div style={styles.card}>
             <p style={{ fontSize: '13pt', lineHeight: '1.8' }}>{executiveSummary.brand_score_and_tier}</p>
+          </div>
+        )}
+
+        {executiveSummary?.conclusion && (
+          <div style={styles.card}>
+            <h4 style={styles.subsubsectionHeader}>Strategic Conclusion</h4>
+            <p style={{ lineHeight: '1.8' }}>{executiveSummary.conclusion}</p>
           </div>
         )}
 
@@ -487,13 +657,6 @@ const PrintableContent = ({
                 <li key={idx} style={styles.listItem}>{weakness}</li>
               ))}
             </ul>
-          </div>
-        )}
-
-        {executiveSummary?.conclusion && (
-          <div style={styles.card}>
-            <h4 style={styles.subsubsectionHeader}>Strategic Conclusion</h4>
-            <p style={{ lineHeight: '1.8' }}>{executiveSummary.conclusion}</p>
           </div>
         )}
 
@@ -546,11 +709,124 @@ const PrintableContent = ({
         )}
       </div>
 
-      {/* Section 3: Detailed Performance Analysis */}
-      <div style={{ pageBreakAfter: 'always' }}>
-        <h2 style={styles.sectionHeader}>3. Detailed Performance Analysis</h2>
+      {/* Section 3: AI Prompts & Query Analysis */}
+      <div style={{ pageBreakBefore: 'always' }}>
+        <h2 style={styles.sectionHeader}>3. AI Prompts & Query Analysis</h2>
         
-        <h3 style={styles.subsectionHeader}>3.1 Competitive Landscape</h3>
+        <div style={{ ...styles.card, marginBottom: '24px' }}>
+          <div style={{ display: 'flex', justifyContent: 'space-around', textAlign: 'center' }}>
+            <div>
+              <div style={{ fontSize: '36px', fontWeight: '700', color: '#1e40af' }}>{keywords.length}</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>Keywords Analyzed</div>
+            </div>
+            <div>
+              <div style={{ fontSize: '36px', fontWeight: '700', color: '#1e40af' }}>{totalPrompts}</div>
+              <div style={{ fontSize: '12px', color: '#6b7280' }}>Total Prompts</div>
+            </div>
+          </div>
+        </div>
+
+        <h3 style={styles.subsectionHeader}>3.1 Keywords & Prompts Breakdown</h3>
+        
+        {keywords && keywords.length > 0 && keywords.map((kw, idx) => {
+          const brandScore = getBrandScoreForKeyword(kw.id);
+          const brandsToDisplay = getBrandsForKeyword(kw.id);
+          
+          return (
+            <div key={idx} style={{ ...styles.card, pageBreakInside: 'avoid', marginBottom: '24px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                <div>
+                  <h4 style={{ ...styles.subsubsectionHeader, marginTop: '0', marginBottom: '4px' }}>
+                    Keyword {idx + 1}: {kw.name}
+                  </h4>
+                  <p style={{ fontSize: '11pt', color: '#6b7280', margin: 0 }}>
+                    {kw.prompts?.length || 0} prompts analyzed
+                  </p>
+                </div>
+                <div style={{ textAlign: 'center' }}>
+                  <span style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    width: '48px',
+                    height: '48px',
+                    borderRadius: '50%',
+                    fontSize: '18px',
+                    fontWeight: '700',
+                    backgroundColor: brandScore >= 3 ? '#d1fae5' : brandScore >= 1 ? '#fef3c7' : '#fee2e2',
+                    color: brandScore >= 3 ? '#065f46' : brandScore >= 1 ? '#92400e' : '#991b1b',
+                  }}>
+                    {brandScore}
+                  </span>
+                  <p style={{ fontSize: '10px', color: '#6b7280', marginTop: '4px' }}>Your Mentions</p>
+                </div>
+              </div>
+              
+              {/* Prompts Table - EXPANDED */}
+              <h5 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>
+                📝 AI Prompts Used
+              </h5>
+              <table style={{ ...styles.table, fontSize: '10pt', marginBottom: '16px' }}>
+                <thead>
+                  <tr>
+                    <th style={{ ...styles.tableHeader, width: '40px' }}>#</th>
+                    <th style={styles.tableHeader}>Search Prompt</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {kw.prompts.map((prompt, pIdx) => (
+                    <tr key={pIdx} style={pIdx % 2 === 1 ? styles.tableRowAlt : {}}>
+                      <td style={{ ...styles.tableCell, textAlign: 'center' }}>{pIdx + 1}</td>
+                      <td style={styles.tableCell}>{prompt}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+
+              {/* Brand Mentions Breakdown - EXPANDED */}
+              <h5 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '12px', color: '#374151' }}>
+                🏆 Brand Mentions for "{kw.name}"
+              </h5>
+              <table style={{ ...styles.table, fontSize: '10pt' }}>
+                <thead>
+                  <tr>
+                    <th style={styles.tableHeader}>Brand</th>
+                    <th style={{ ...styles.tableHeader, width: '100px', textAlign: 'center' }}>Mentions</th>
+                    <th style={{ ...styles.tableHeader, width: '100px', textAlign: 'center' }}>Performance</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {brandsToDisplay.map((brand, bIdx) => {
+                    const score = brand.mention_breakdown?.[kw.id] || 0;
+                    const isBrand = brand.brand === brandName;
+                    return (
+                      <tr key={bIdx} style={{
+                        ...(bIdx % 2 === 1 ? styles.tableRowAlt : {}),
+                        backgroundColor: isBrand ? '#eff6ff' : (bIdx % 2 === 1 ? '#f9fafb' : '#ffffff'),
+                        fontWeight: isBrand ? '600' : 'normal',
+                      }}>
+                        <td style={styles.tableCell}>{brand.brand}</td>
+                        <td style={{ ...styles.tableCell, textAlign: 'center' }}>{score}</td>
+                        <td style={{ ...styles.tableCell, textAlign: 'center' }}>
+                          <span style={score >= 3 ? getTierBadgeStyle('high') : score >= 1 ? getTierBadgeStyle('medium') : getTierBadgeStyle('low')}>
+                            {score >= 3 ? 'Strong' : score >= 1 ? 'Moderate' : 'Weak'}
+                          </span>
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Section 4: Competitive Analysis */}
+      <div style={{ pageBreakBefore: 'always' }}>
+        <h2 style={styles.sectionHeader}>4. Competitive Analysis</h2>
+        
+        <h3 style={styles.subsectionHeader}>4.1 Competitive Landscape</h3>
         
         <table style={styles.table}>
           <thead>
@@ -595,40 +871,57 @@ const PrintableContent = ({
           </tbody>
         </table>
 
-        <h3 style={styles.subsectionHeader}>3.2 Search Query Analysis</h3>
+        <h3 style={styles.subsectionHeader}>4.2 Brand Response Rates</h3>
+        <p style={{ color: '#6b7280', marginBottom: '16px' }}>Percentage of AI responses where each brand is mentioned</p>
         
-        {keywords && keywords.length > 0 && keywords.map((kw, idx) => (
-          <div key={idx} style={{ ...styles.card, pageBreakInside: 'avoid' }}>
-            <h4 style={styles.subsubsectionHeader}>
-              Keyword {idx + 1}: {kw.name}
-            </h4>
-            <p style={{ fontSize: '11pt', color: '#6b7280', marginBottom: '12px' }}>
-              {kw.prompts?.length || 0} prompts analyzed
-            </p>
-            <table style={{ ...styles.table, fontSize: '10pt' }}>
-              <thead>
-                <tr>
-                  <th style={{ ...styles.tableHeader, width: '60px' }}>#</th>
-                  <th style={styles.tableHeader}>Search Prompt</th>
-                </tr>
-              </thead>
-              <tbody>
-                {kw.prompts.map((prompt, pIdx) => (
-                  <tr key={pIdx} style={pIdx % 2 === 1 ? styles.tableRowAlt : {}}>
-                    <td style={styles.tableCell}>{pIdx + 1}</td>
-                    <td style={styles.tableCell}>{prompt}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        ))}
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.tableHeader}>Rank</th>
+              <th style={styles.tableHeader}>Brand</th>
+              <th style={styles.tableHeader}>Response Rate</th>
+              <th style={styles.tableHeader}>Performance</th>
+            </tr>
+          </thead>
+          <tbody>
+            {brandMentionRates.map((item, idx) => (
+              <tr 
+                key={idx}
+                style={{
+                  ...(idx % 2 === 1 ? styles.tableRowAlt : {}),
+                  backgroundColor: item.isTestBrand ? '#eff6ff' : (idx % 2 === 1 ? '#f9fafb' : '#ffffff'),
+                  fontWeight: item.isTestBrand ? '600' : 'normal',
+                }}
+              >
+                <td style={styles.tableCell}>{idx + 1}</td>
+                <td style={styles.tableCell}>{item.brand}</td>
+                <td style={styles.tableCell}>{item.responseRate}%</td>
+                <td style={styles.tableCell}>
+                  <div style={{ 
+                    width: '100%', 
+                    height: '20px', 
+                    backgroundColor: '#e5e7eb', 
+                    borderRadius: '4px',
+                    overflow: 'hidden'
+                  }}>
+                    <div style={{ 
+                      width: `${item.responseRate}%`, 
+                      height: '100%', 
+                      backgroundColor: item.isTestBrand ? '#2563eb' : '#f59e0b',
+                      borderRadius: '4px'
+                    }} />
+                  </div>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
 
-      {/* Section 4: Sources & Content Impact */}
+      {/* Section 5: Sources & Content Impact */}
       {sourcesAndContentImpact && Object.keys(sourcesAndContentImpact).length > 0 && (
         <div style={{ pageBreakBefore: 'always' }}>
-          <h2 style={styles.sectionHeader}>4. Sources & Content Impact</h2>
+          <h2 style={styles.sectionHeader}>5. Sources & Content Impact</h2>
           
           <p style={{ marginBottom: '24px', color: '#4b5563' }}>
             This section analyzes how different content sources impact brand visibility across AI platforms. 
@@ -639,24 +932,35 @@ const PrintableContent = ({
             <div key={idx} style={{ ...styles.card, pageBreakInside: 'avoid', marginBottom: '32px' }}>
               <h3 style={{ ...styles.subsectionHeader, marginTop: '0' }}>{sourceName}</h3>
               
-              {/* Pages Used */}
+              {/* Pages Used - EXPANDED */}
               {sourceData.pages_used && sourceData.pages_used.length > 0 && (
                 <div style={{ marginBottom: '20px' }}>
                   <h4 style={{ ...styles.subsubsectionHeader, fontSize: '13px' }}>
-                    Referenced Sources ({sourceData.pages_used.length})
+                    🔗 Referenced Sources ({sourceData.pages_used.length})
                   </h4>
-                  <ul style={{ ...styles.list, fontSize: '9pt', color: '#4b5563' }}>
-                    {sourceData.pages_used.map((url: string, urlIdx: number) => (
-                      <li key={urlIdx} style={{ marginBottom: '4px', wordBreak: 'break-all' }}>{url}</li>
-                    ))}
-                  </ul>
+                  <table style={{ ...styles.table, fontSize: '9pt' }}>
+                    <thead>
+                      <tr>
+                        <th style={{ ...styles.tableHeader, width: '40px' }}>#</th>
+                        <th style={styles.tableHeader}>URL</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {sourceData.pages_used.map((url: string, urlIdx: number) => (
+                        <tr key={urlIdx} style={urlIdx % 2 === 1 ? styles.tableRowAlt : {}}>
+                          <td style={{ ...styles.tableCell, textAlign: 'center' }}>{urlIdx + 1}</td>
+                          <td style={{ ...styles.tableCell, wordBreak: 'break-all' as const }}>{url}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
                 </div>
               )}
 
-              {/* Brand Mentions Table */}
+              {/* Brand Mentions Table - EXPANDED */}
               {sourceData.mentions && Object.keys(sourceData.mentions).length > 0 && (
                 <>
-                  <h4 style={{ ...styles.subsubsectionHeader, fontSize: '13px' }}>Brand Mentions Analysis</h4>
+                  <h4 style={{ ...styles.subsubsectionHeader, fontSize: '13px' }}>📊 Brand Mentions Analysis</h4>
                   <table style={styles.table}>
                     <thead>
                       <tr>
@@ -696,29 +1000,125 @@ const PrintableContent = ({
         </div>
       )}
 
-      {/* Section 5: Strategic Recommendations */}
+      {/* Section 6: Brand Sentiment Analysis */}
+      <div style={{ pageBreakBefore: 'always' }}>
+        <h2 style={styles.sectionHeader}>6. Brand Sentiment Analysis</h2>
+        
+        <h3 style={styles.subsectionHeader}>6.1 Primary Brand Sentiment</h3>
+        <div style={styles.card}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px', marginBottom: '16px' }}>
+            {brandLogo && (
+              <img 
+                src={brandLogo} 
+                alt={brandName}
+                style={{ width: '48px', height: '48px', objectFit: 'contain', borderRadius: '50%', backgroundColor: 'white' }}
+              />
+            )}
+            <div>
+              <h4 style={{ margin: '0 0 8px 0', fontSize: '18px' }}>{brandName} Sentiment Overview</h4>
+              <span style={getTierBadgeStyle(sentiment?.dominant_sentiment)}>
+                {sentiment?.dominant_sentiment || 'N/A'}
+              </span>
+            </div>
+          </div>
+          <p style={{ color: '#4b5563', lineHeight: '1.8' }}>{sentiment?.summary || 'No sentiment data available.'}</p>
+        </div>
+
+        {/* Sentiment Summary */}
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: '16px', marginBottom: '24px' }}>
+          {['Positive', 'Neutral', 'Negative'].map(sentimentType => {
+            const matchingBrands = competitorSentiment.filter(c => c.outlook === sentimentType);
+            const count = matchingBrands.length;
+            const colors: Record<string, { bg: string; border: string }> = {
+              'Positive': { bg: '#d1fae5', border: '#16a34a' },
+              'Neutral': { bg: '#fef3c7', border: '#ca8a04' },
+              'Negative': { bg: '#fee2e2', border: '#dc2626' }
+            };
+            
+            return (
+              <div key={sentimentType} style={{ 
+                ...styles.card, 
+                backgroundColor: colors[sentimentType].bg,
+                borderColor: colors[sentimentType].border,
+                textAlign: 'center'
+              }}>
+                <div style={{ fontSize: '36px', fontWeight: '700', color: colors[sentimentType].border }}>{count}</div>
+                <div style={{ fontSize: '14px', fontWeight: '600', marginBottom: '8px' }}>{sentimentType}</div>
+                <div style={{ fontSize: '11px', color: '#6b7280' }}>
+                  {matchingBrands.map(b => b.brand).join(', ') || 'None'}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+
+        <h3 style={styles.subsectionHeader}>6.2 Competitor Sentiment Analysis</h3>
+        <table style={styles.table}>
+          <thead>
+            <tr>
+              <th style={styles.tableHeader}>Brand</th>
+              <th style={styles.tableHeader}>Sentiment Summary</th>
+              <th style={{ ...styles.tableHeader, width: '120px', textAlign: 'center' }}>Outlook</th>
+            </tr>
+          </thead>
+          <tbody>
+            {competitorSentiment.map((item, idx) => {
+              const isPrimaryBrand = item.brand === brandName;
+              return (
+                <tr 
+                  key={idx}
+                  style={{
+                    ...(idx % 2 === 1 ? styles.tableRowAlt : {}),
+                    backgroundColor: isPrimaryBrand ? '#eff6ff' : (idx % 2 === 1 ? '#f9fafb' : '#ffffff'),
+                    fontWeight: isPrimaryBrand ? '600' : 'normal',
+                  }}
+                >
+                  <td style={styles.tableCell}>{item.brand}</td>
+                  <td style={{ ...styles.tableCell, fontSize: '10pt' }}>{item.summary}</td>
+                  <td style={{ ...styles.tableCell, textAlign: 'center' }}>
+                    <span style={getOutlookBadgeStyle(item.outlook)}>{item.outlook}</span>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Section 7: Strategic Recommendations */}
       {recommendations && recommendations.length > 0 && (
         <div style={{ pageBreakBefore: 'always' }}>
-          <h2 style={styles.sectionHeader}>5. Strategic Recommendations</h2>
+          <h2 style={styles.sectionHeader}>7. Strategic Recommendations</h2>
           
-          <h3 style={styles.subsectionHeader}>5.1 Prioritized Action Items</h3>
+          <h3 style={styles.subsectionHeader}>7.1 Prioritized Action Items</h3>
           
           {recommendations.map((rec, idx) => (
             <div key={idx} style={{ ...styles.card, pageBreakInside: 'avoid', marginBottom: '24px' }}>
-              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap' }}>
-              <h4 style={{ ...styles.subsubsectionHeader, marginTop: '0' }}>
-                Recommendation {idx + 1}
-              </h4>
+              <div style={{ display: 'flex', gap: '12px', marginBottom: '16px', flexWrap: 'wrap', alignItems: 'center' }}>
+                <span style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  width: '32px',
+                  height: '32px',
+                  borderRadius: '50%',
+                  backgroundColor: '#1e40af',
+                  color: '#ffffff',
+                  fontWeight: '700',
+                  fontSize: '14px',
+                }}>
+                  {idx + 1}
+                </span>
+                <h4 style={{ ...styles.subsubsectionHeader, marginTop: '0', marginBottom: '0' }}>
+                  Recommendation {idx + 1}
+                </h4>
+                <span style={getImpactBadgeStyle(rec.impact)}>Impact: {rec.impact}</span>
+                <span style={getImpactBadgeStyle(rec.overall_effort)}>Effort: {rec.overall_effort}</span>
               </div>
-              <span style={getImpactBadgeStyle(rec.impact)}>
-                  Impact: {rec.impact}
-                </span>
-                <span style={getImpactBadgeStyle(rec.overall_effort)}>
-                  Effort: {rec.overall_effort}
-                </span>
+              
               <div style={{ marginBottom: '16px' }}>
                 <h5 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#374151' }}>
-                  Strategic Insight
+                  💡 Strategic Insight
                 </h5>
                 <p style={{ fontSize: '11pt', lineHeight: '1.7', color: '#4b5563' }}>
                   {rec.overall_insight}
@@ -727,7 +1127,7 @@ const PrintableContent = ({
               
               <div>
                 <h5 style={{ fontSize: '13px', fontWeight: '600', marginBottom: '8px', color: '#374151' }}>
-                  Suggested Action
+                  ✅ Suggested Action
                 </h5>
                 <p style={{ fontSize: '11pt', lineHeight: '1.7', color: '#1f2937' }}>
                   {rec.suggested_action}
@@ -736,14 +1136,14 @@ const PrintableContent = ({
             </div>
           ))}
 
-          <h3 style={styles.subsectionHeader}>5.2 Implementation Roadmap</h3>
+          <h3 style={styles.subsectionHeader}>7.2 Implementation Roadmap</h3>
           
           {executiveSummary?.prioritized_actions && executiveSummary.prioritized_actions.length > 0 && (
             <div style={styles.card}>
               <h4 style={styles.subsubsectionHeader}>Priority Actions</h4>
               <ol style={{ paddingLeft: '24px', margin: '0' }}>
                 {executiveSummary.prioritized_actions.map((action, idx) => (
-                  <li key={idx} style={{ marginBottom: '12px', lineHeight: '1.7' }}>{idx+1}. {action}</li>
+                  <li key={idx} style={{ marginBottom: '12px', lineHeight: '1.7' }}>{action}</li>
                 ))}
               </ol>
             </div>
@@ -751,11 +1151,11 @@ const PrintableContent = ({
         </div>
       )}
 
-      {/* Section 6: Appendix */}
+      {/* Section 8: Appendix */}
       <div style={{ pageBreakBefore: 'always' }}>
-        <h2 style={styles.sectionHeader}>6. Appendix</h2>
+        <h2 style={styles.sectionHeader}>8. Appendix</h2>
         
-        <h3 style={styles.subsectionHeader}>6.1 Competitor Sentiment Analysis</h3>
+        <h3 style={styles.subsectionHeader}>8.1 Competitor Brand Summaries</h3>
         
         {sortedBrands.map((brand, idx) => (
           <div key={idx} style={{ ...styles.card, pageBreakInside: 'avoid' }}>
@@ -784,12 +1184,12 @@ const PrintableContent = ({
           </div>
         ))}
 
-        <h3 style={styles.subsectionHeader}>6.2 Methodology Notes</h3>
+        <h3 style={styles.subsectionHeader}>8.2 Methodology Notes</h3>
         
         <div style={styles.card}>
           <h4 style={styles.subsubsectionHeader}>Data Collection</h4>
           <p style={{ marginBottom: '12px' }}>
-            This analysis was conducted by querying multiple AI language models (LLMs) including {Object.keys(llmData).join(', ')} 
+            This analysis was conducted by querying multiple AI language models (LLMs) including {Object.keys(llmData).map(l => l === 'openai' ? 'ChatGPT' : l.charAt(0).toUpperCase() + l.slice(1)).join(', ')} 
             across {keywords.length} keyword categories with a total of {totalPrompts} unique prompts.
           </p>
           
@@ -841,6 +1241,10 @@ export const generateReport = (toast: (props: { title: string; description: stri
   // Gather all data upfront before rendering
   const brandName = getBrandName();
   const brandWebsite = getBrandWebsite();
+  const brandLogo = getBrandLogo();
+  const modelName = getModelName();
+  const analysisDate = getAnalysisDate();
+  const analysisKeywords = getAnalysisKeywords();
   const analytics = getAnalytics();
   const brandInfo = getBrandInfoWithLogos();
   const executiveSummary = getExecutiveSummary();
@@ -850,6 +1254,10 @@ export const generateReport = (toast: (props: { title: string; description: stri
   const aiVisibility = getAIVisibilityMetrics();
   const mentionsData = getMentionsPosition();
   const sourcesAndContentImpact = analytics?.sources_and_content_impact || {};
+  const platformPresence = getPlatformPresence();
+  const competitorSentiment = getCompetitorSentiment();
+  const sentiment = getSentiment();
+  const brandMentionRates = getBrandMentionResponseRates();
 
   // Check if data is available
   if (!brandName || brandInfo.length === 0) {
@@ -883,6 +1291,10 @@ export const generateReport = (toast: (props: { title: string; description: stri
     <PrintableContent 
       brandName={brandName}
       brandWebsite={brandWebsite}
+      brandLogo={brandLogo}
+      modelName={modelName}
+      analysisDate={analysisDate}
+      analysisKeywords={analysisKeywords}
       brandInfo={brandInfo}
       executiveSummary={executiveSummary}
       recommendations={recommendations}
@@ -891,6 +1303,10 @@ export const generateReport = (toast: (props: { title: string; description: stri
       aiVisibility={aiVisibility}
       mentionsData={mentionsData}
       sourcesAndContentImpact={sourcesAndContentImpact}
+      platformPresence={platformPresence}
+      competitorSentiment={competitorSentiment}
+      sentiment={sentiment}
+      brandMentionRates={brandMentionRates}
     />
   );
 
