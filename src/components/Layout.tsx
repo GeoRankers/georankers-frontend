@@ -36,35 +36,16 @@ export const Layout = ({ children, showNavigation = true, sidebarTrigger }: Layo
     navigate("/");
   };
 
-  const handleRegenerateAnalysis = async () => {
+  const handleRegenerateAnalysis = () => {
     if (!productId) return;
 
-    setIsRegenerating(true);
-    try {
-      const accessToken = localStorage.getItem("access_token") || "";
-
-      // Call regenerate analysis API
-      await regenerateAnalysis(productId, accessToken);
-
-      toast({
-        title: "Analysis in Progress",
-        description: "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
-        duration: 10000,
-      });
-
-      // Refresh after some time
-      setTimeout(() => {
-        window.location.reload();
-      }, 20000);
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to regenerate analysis. Please try again.",
-        variant: "destructive",
-      });
-    } finally {
-      setIsRegenerating(false);
-    }
+    navigate("/input", {
+      state: {
+        productId: productId,
+        isRegenerate: true,
+        disableWebsiteEdit: true,
+      },
+    });
   };
 
   return (

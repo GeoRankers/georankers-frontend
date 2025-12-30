@@ -37,18 +37,19 @@ const Index = () => {
   useEffect(() => {
     const checkUserAndProduct = async () => {
       if (isLoading || hasChecked) return;
-      
+
       // Only auto-redirect if this is initial app load (not navigating from within app)
       const hasNavigatedWithinApp = sessionStorage.getItem("app_initialized");
-      
+
       if (!user) {
         setHasChecked(true);
         sessionStorage.setItem("app_initialized", "true");
         return;
       }
 
-      // If user is logged in and app is already initialized, don't auto-redirect
-      if (hasNavigatedWithinApp) {
+      // If user is logged in and app is already initialized, don't auto-redirect 
+      // ONLY if they already have products. New users (0 products) should always be redirected to /input.
+      if (hasNavigatedWithinApp && hasProduct) {
         setHasChecked(true);
         return;
       }
@@ -58,7 +59,7 @@ const Index = () => {
       try {
         const accessToken = localStorage.getItem("access_token") || "";
         const applicationId = localStorage.getItem("application_id") || "";
-        
+
         if (!applicationId) {
           setHasProduct(false);
           setCheckingProduct(false);
@@ -67,18 +68,18 @@ const Index = () => {
           navigate("/input");
           return;
         }
-        
+
         const products = await getProductsByApplication(applicationId, accessToken);
-        
+
         if (products && Array.isArray(products) && products.length > 0) {
           setHasProduct(true);
           const firstProduct = products[0];
-          
+
           // Store product data
           localStorage.setItem("product_id", firstProduct.id);
           localStorage.setItem("keywords", JSON.stringify(firstProduct.search_keywords || []));
           localStorage.setItem("keyword_count", (firstProduct.search_keywords || []).length.toString());
-          
+
           setHasChecked(true);
           sessionStorage.setItem("app_initialized", "true");
           // Navigate to results page
@@ -113,23 +114,23 @@ const Index = () => {
       navigate("/login");
       return;
     }
-  
+
     try {
       const accessToken = localStorage.getItem("access_token") || "";
       const applicationId = localStorage.getItem("application_id") || "";
-  
+
       if (!applicationId) {
         navigate("/input");
         return;
       }
-  
+
       const products = await getProductsByApplication(applicationId, accessToken);
-  
+
       if (products && Array.isArray(products) && products.length > 0) {
         const lastProduct = products[products.length - 1];
         const currentWebsite =
           lastProduct.website || lastProduct.name || "";
-  
+
         navigate("/input", {
           state: {
             prefillWebsite: currentWebsite,
@@ -145,7 +146,7 @@ const Index = () => {
       console.error("Error in handleNewAnalysis:", error);
       navigate("/input");
     }
-  };  
+  };
 
   const handlePreviousAnalysis = async () => {
     if (!user) {
@@ -157,23 +158,23 @@ const Index = () => {
     try {
       const accessToken = localStorage.getItem("access_token") || "";
       const applicationId = localStorage.getItem("application_id") || "";
-  
+
       if (!applicationId) {
         // No application ID → go to input
         navigate("/input");
         return;
       }
-  
+
       const products = await getProductsByApplication(applicationId, accessToken);
-  
+
       if (products && Array.isArray(products) && products.length > 0) {
         const lastProduct = products[products.length - 1];
-  
+
         // Store product id and keywords
         localStorage.setItem("product_id", lastProduct.id);
         localStorage.setItem("keywords", JSON.stringify(lastProduct.search_keywords || []));
         localStorage.setItem("keyword_count", (lastProduct.search_keywords || []).length.toString());
-        
+
         navigate("/results", {
           state: {
             website: lastProduct.website || lastProduct.name,

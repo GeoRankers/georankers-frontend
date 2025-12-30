@@ -17,7 +17,7 @@ import { useResults, TabType } from "@/results/context/ResultsContext";
 import { useSidebar } from "@/components/ui/sidebar";
 import { PanelLeft } from "lucide-react";
 import { generateReport } from '@/results/layout/downloadReport';
-import { getBrandName } from '@/results/data/analyticsData';
+import { getBrandName,getBrandWebsite } from '@/results/data/analyticsData';
 
 const mobileNavItems = [
   { label: "Overview", path: "/results", tab: "overview" as TabType },
@@ -47,7 +47,7 @@ const mobileNavItems = [
 // Analysis Animation Component
 const AnalyzingAnimation = () => {
   const [currentStep, setCurrentStep] = useState(0);
-  
+
   const steps = [
     { icon: FileText, text: "Gathering", color: "text-blue-500" },
     { icon: Globe, text: "Searching", color: "text-green-500" },
@@ -147,12 +147,12 @@ export const Header = () => {
   const handleNewAnalysis = () => {
     if (actionsDisabled) return;
 
-    const currentWebsite = products?.[0]?.website || "";
-    const currentProductId = products?.[0]?.id || productId || "";
+    const brandWebsite = getBrandWebsite() || "";
+    const currentProductId = productId || "";
 
     navigate("/input", {
       state: {
-        prefillWebsite: currentWebsite,
+        prefillWebsite: brandWebsite,
         productId: currentProductId,
         isNewAnalysis: true,
         disableWebsiteEdit: true,
@@ -160,35 +160,19 @@ export const Header = () => {
     });
   };
 
-  const handleRegenerateAnalysis = async () => {
-    if (!productId) return;
-    if (actionsDisabled) return;
+  const handleRegenerateAnalysis = () => {
+    if (!productId || actionsDisabled) return;
 
-    setIsRegenerating(true);
-    startAnalysis(productId);
+    const brandWebsite = getBrandWebsite() || "";
 
-    try {
-      const accessToken = localStorage.getItem("access_token") || "";
-      await regenerateAnalysis(productId, accessToken);
-
-      toast({
-        title: "Analysis in Progress",
-        description:
-          "Your analysis has begun. Please stay on this page, you'll receive a notification here when it's ready.",
-        duration: 10000,
-      });
-
-      // NOTE: keep locked until dataReady becomes true (handled by useEffect)
-    } catch (error) {
-      toast({
-        title: "Error",
-        description: "Failed to regenerate analysis. Please try again.",
-        variant: "destructive",
-      });
-
-      setIsRegenerating(false);
-      completeAnalysis();
-    }
+    navigate("/input", {
+      state: {
+        prefillWebsite: brandWebsite,
+        productId: productId,
+        isRegenerate: true,
+        disableWebsiteEdit: true,
+      },
+    });
   };
 
   const handleMobileNavClick = (tab: TabType) => {
@@ -252,7 +236,7 @@ export const Header = () => {
                 <AnalyzingAnimation />
               </div>
             )}
-            
+
             {/* New Analysis Button */}
             <Button
               variant="outline"

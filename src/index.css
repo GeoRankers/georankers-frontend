@@ -304,6 +304,26 @@ All colors MUST be HSL. Complete color scheme with all themes.
   .scrollbar-hide::-webkit-scrollbar {
     display: none;
   }
+  
+  @keyframes progress-loop {
+    0% { transform: translateX(-100%); }
+    100% { transform: translateX(100%); }
+  }
+  
+  @keyframes gradient-flow {
+    0% { background-position: 0% 50%; }
+    50% { background-position: 100% 50%; }
+    100% { background-position: 0% 50%; }
+  }
+  
+  .animate-progress-loop {
+    animation: progress-loop 2s infinite linear;
+  }
+  
+  .animate-gradient-flow {
+    animation: gradient-flow 3s ease infinite;
+    background-size: 200% auto;
+  }
 }
 
 /* ============================= */

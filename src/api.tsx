@@ -9,7 +9,12 @@ export const API_ENDPOINTS = {
   resetPassword: `${BASE_URL}/api/v1/users/reset-password`,
   verifyEmail: `${BASE_URL}/api/v1/users/verify-email`,
 
+  // Onboarding
+  onboardingData: `${BASE_URL}/api/v1/onboarding/data`,
+  onboardingSelections: `${BASE_URL}/api/v1/onboarding/selections`,
+
   // Products
+  createProduct: `${BASE_URL}/api/v1/products`,
   createProductWithKeywords: `${BASE_URL}/api/v1/products/with-keywords`,
   generateWithKeywords: `${BASE_URL}/api/v1/products/generate/with-keywords`,
   regenerateAnalysis: `${BASE_URL}/api/v1/products/generate/result-and-analytics`,

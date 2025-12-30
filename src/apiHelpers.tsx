@@ -89,13 +89,13 @@ API.interceptors.response.use(
     const authEndpoints = ['/login', '/register', '/verify-email', '/forgot-password', '/reset-password'];
     const requestUrl = error.config?.url || '';
     const isAuthEndpoint = authEndpoints.some(endpoint => requestUrl.includes(endpoint));
-    
+
     if (!isAuthEndpoint && isUnauthorizedError(error)) {
       console.log("🔒 [API] Unauthorized error detected - logging out user");
       handleUnauthorized();
       return Promise.reject(error);
     }
-    
+
     return Promise.reject(error);
   }
 );
@@ -172,9 +172,9 @@ export const forgotPassword = async (email: string): Promise<any> => {
 
 export const resetPassword = async (token: string, newPassword: string): Promise<any> => {
   try {
-    const res = await API.post(API_ENDPOINTS.resetPassword, { 
-      token, 
-      new_password: newPassword 
+    const res = await API.post(API_ENDPOINTS.resetPassword, {
+      token,
+      new_password: newPassword
     });
     return res.data;
   } catch (error) {
@@ -192,6 +192,120 @@ export const verifyEmail = async (token: string): Promise<any> => {
   } catch (error) {
     console.error('Verify email error:', error);
     throw error;
+  }
+};
+
+/* =====================
+   ONBOARDING HELPERS
+   ===================== */
+export interface OnboardingDataRequest {
+  website: string;
+  business_domain?: string;
+  application_id: string;
+}
+
+export interface OnboardingCompetitor {
+  name: string;
+  website: string;
+}
+
+export interface OnboardingDataResponse {
+  description: string;
+  name: string;
+  competitors: OnboardingCompetitor[];
+  keywords: string[];
+}
+
+export const fetchOnboardingData = async (
+  website: string,
+  business_domain?: string
+): Promise<OnboardingDataResponse> => {
+  try {
+    let appId = localStorage.getItem("application_id");
+
+    // Generate and store application_id if it doesn't exist
+    if (!appId) {
+      appId = crypto.randomUUID();
+      localStorage.setItem("application_id", appId);
+    }
+
+    const payload: OnboardingDataRequest = {
+      website,
+      application_id: appId,
+      ...(business_domain && { business_domain }),
+    };
+
+    const res = await API.post(API_ENDPOINTS.onboardingData, payload);
+    return res.data;
+  } catch (error: any) {
+    console.error('Fetch onboarding data error:', error);
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      'Failed to fetch onboarding data';
+    throw new Error(message);
+  }
+};
+
+export interface OnboardingSelectionsRequest {
+  website: string;
+  competitors: OnboardingCompetitor[];
+  keywords: string[];
+  application_id?: string;
+}
+
+export const saveOnboardingSelections = async (
+  payload: OnboardingSelectionsRequest
+): Promise<{ message: string }> => {
+  try {
+    const appId = payload.application_id || localStorage.getItem("application_id") || "";
+
+    // Add application_id to the payload
+    const body = {
+      ...payload,
+      application_id: appId,
+    };
+
+    const res = await API.post(API_ENDPOINTS.onboardingSelections, body);
+    return res.data;
+  } catch (error: any) {
+    console.error('Save onboarding selections error:', error);
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      'Failed to save selections';
+    throw new Error(message);
+  }
+};
+
+export interface CreateProductRequest {
+  website: string;
+  name?: string;
+  description?: string;
+  business_domain?: string;
+  application_id?: string;
+}
+
+export const createProduct = async (
+  payload: CreateProductRequest
+): Promise<any> => {
+  try {
+    const appId = payload.application_id || localStorage.getItem("application_id") || "";
+
+    const body = {
+      ...payload,
+      application_id: appId,
+    };
+
+    const res = await API.post(API_ENDPOINTS.createProduct, body);
+    return res.data;
+  } catch (error: any) {
+    console.error('Create product error:', error);
+    const message =
+      error.response?.data?.error ||
+      error.response?.data?.message ||
+      'Failed to create product';
+    throw new Error(message);
   }
 };
 
@@ -281,7 +395,7 @@ export const regenerateAnalysis = async (
 ): Promise<any> => {
   try {
     const res = await API.post(
-      API_ENDPOINTS.regenerateAnalysis, 
+      API_ENDPOINTS.regenerateAnalysis,
       { product_id: productId },
       {
         headers: {
@@ -380,19 +494,19 @@ export const getChatHistory = async (
         Authorization: `Bearer ${accessToken}`,
       },
     });
-    
+
     const data: ChatHistoryResponse = res?.data;
-    
+
     if (!data || !data.history || !Array.isArray(data.history)) {
       return [];
     }
-    
+
     // Transform history to messages array
     const messages: ChatMessage[] = [];
-    
+
     // History comes most recent first, reverse for chronological display
     const reversedHistory = [...data.history].reverse();
-    
+
     reversedHistory.forEach((item) => {
       // Add user message (question)
       messages.push({
@@ -401,7 +515,7 @@ export const getChatHistory = async (
         role: 'user',
         timestamp: item.created_at || item.updated_at,
       });
-      
+
       // Add assistant message (answer)
       messages.push({
         id: `${item.id}-answer`,
@@ -410,7 +524,7 @@ export const getChatHistory = async (
         timestamp: item.updated_at || item.created_at,
       });
     });
-    
+
     return messages;
   } catch (error) {
     console.error('Failed to get chat history:', error);
@@ -428,7 +542,7 @@ export const sendChatMessage = async (
       product_id: productId,
       question: question,
     };
-    
+
     const res = await API.post(
       API_ENDPOINTS.sendChatMessage(productId),
       requestBody,
@@ -438,7 +552,7 @@ export const sendChatMessage = async (
         },
       }
     );
-    
+
     return res?.data || null;
   } catch (error) {
     console.error('Failed to send chat message:', error);
@@ -470,21 +584,21 @@ export const getDashboardUsers = async (
     if (accessToken) {
       headers.Authorization = `Bearer ${accessToken}`;
     }
-    
+
     const res = await API.get(API_ENDPOINTS.dashboardUsers, {
       headers,
     });
     return res?.data || [];
   } catch (error: any) {
     console.error('Failed to get dashboard users:', error);
-    
+
     // Extract error message from backend response
-    const errorMessage = 
+    const errorMessage =
       error.response?.data?.error ||
       error.response?.data?.message ||
       error.message ||
       'Failed to fetch dashboard users';
-    
+
     // Throw error with backend message so it can be handled by the component
     throw new Error(errorMessage);
   }
