@@ -606,7 +606,7 @@ export default function InputPage() {
   return (
     <Layout>
       <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <main className="container mx-auto px-4 py-12 max-w-4xl">
+        <main className="container mx-auto px-4 py-12 max-w-7xl">
           {!isAnalyzing ? (
             <div className="space-y-12">
               {/* Header */}
