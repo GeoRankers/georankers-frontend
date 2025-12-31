@@ -57,15 +57,34 @@ const isValidKeyword = (keyword: string) => {
 
 import { cn } from "@/lib/utils";
 
-// Extend OnboardingCompetitor with id for selection tracking
-interface CompetitorWithId extends OnboardingCompetitor {
-  id: string;
-}
 
-interface Keyword {
-  id: string;
-  keyword: string;
-}
+// Simplified ID generator that is stable across re-renders/refetches for the same content
+const generateStableId = (prefix: string, content: string) => {
+  const slug = content
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+  return `${prefix}-${slug}`;
+};
+
+// Extend OnboardingCompetitor with id for selection tracking
+// interface CompetitorWithId extends OnboardingCompetitor {
+//   id: string;
+// }
+
+// interface Keyword {
+//   id: string;
+//   keyword: string;
+// }
+
+// Helper to check if two competitors are the same (by website or name)
+const isSameCompetitor = (a: OnboardingCompetitor, b: OnboardingCompetitor) => {
+  if (a.website && b.website) {
+    return normalizeDomain(a.website) === normalizeDomain(b.website);
+  }
+  return a.name.toLowerCase().trim() === b.name.toLowerCase().trim();
+};
 
 const saveKeywordsOnce = (data: any) => {
   if (
@@ -100,9 +119,9 @@ export default function InputPage() {
   // Progressive flow state
   const [brandDescription, setBrandDescription] = useState("");
   const [isLoadingDescription, setIsLoadingDescription] = useState(false);
-  const [suggestedCompetitors, setSuggestedCompetitors] = useState<CompetitorWithId[]>([]);
-  const [selectedCompetitors, setSelectedCompetitors] = useState<string[]>([]);
-  const [suggestedKeywords, setSuggestedKeywords] = useState<Keyword[]>([]);
+  const [suggestedCompetitors, setSuggestedCompetitors] = useState<OnboardingCompetitor[]>([]);
+  const [selectedCompetitors, setSelectedCompetitors] = useState<OnboardingCompetitor[]>([]);
+  const [suggestedKeywords, setSuggestedKeywords] = useState<string[]>([]);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
@@ -169,17 +188,19 @@ export default function InputPage() {
           if (analytics.search_keywords) {
             const keywordsObj = analytics.search_keywords;
             const keywords = Object.values(keywordsObj).map((kw: any) => kw.name);
-            const keywordsWithIds = keywords.map((kw: string, idx: number) => ({
-              id: `kw-prev-${idx}`,
-              keyword: kw,
-            }));
+
+            // Set suggestions
             setSuggestedKeywords(prev => {
-              // Merge with existing suggestions if any, avoiding duplicates
-              const existing = new Set(prev.map(k => k.keyword));
-              const filtered = keywordsWithIds.filter(k => !existing.has(k.keyword));
-              return [...filtered, ...prev];
+              const combined = [...keywords, ...prev];
+              return Array.from(new Set(combined));
             });
-            setSelectedKeywords(keywordsWithIds.map(k => k.id));
+
+            // Set selected (replace previous state to match "regenerate" semantic, or append if desired. 
+            // "Pre-populate" suggests filling empty state, so appending is safer).
+            setSelectedKeywords(prev => {
+              const combined = [...prev, ...keywords];
+              return Array.from(new Set(combined));
+            });
           }
 
           // Pre-populate competitors
@@ -191,17 +212,20 @@ export default function InputPage() {
                 website: analytics.brand_websites?.[b.brand] || "",
               }));
 
-            const competitorsWithIds = competitors.map((comp: any, idx: number) => ({
-              ...comp,
-              id: `comp-prev-${idx}`,
-            }));
-
             setSuggestedCompetitors(prev => {
-              const existing = new Set(prev.map(c => c.name.toLowerCase()));
-              const filtered = competitorsWithIds.filter(c => !existing.has(c.name.toLowerCase()));
-              return [...filtered, ...prev];
+              // Avoid duplicates
+              const newCompetitors = competitors.filter((nc: any) =>
+                !prev.some(pc => isSameCompetitor(nc, pc))
+              );
+              return [...newCompetitors, ...prev];
             });
-            setSelectedCompetitors(competitorsWithIds.map(c => c.id));
+
+            setSelectedCompetitors(prev => {
+              const newCompetitors = competitors.filter((nc: any) =>
+                !prev.some(pc => isSameCompetitor(nc, pc))
+              );
+              return [...prev, ...newCompetitors];
+            });
           }
 
           // Set brand name if available
@@ -280,26 +304,18 @@ export default function InputPage() {
       // Set brand name
       setBrandName(data.name || "");
 
-      // Set competitors with temporary IDs for selection tracking
-      const competitorsWithIds = data.competitors.map((comp, idx) => ({
-        ...comp,
-        id: `comp-${idx}`,
-      }));
+      // Set competitors
+      // Since "whatever API hits you render it", we can just replace or append.
+      // To avoid massive lists on repeated calls, we'll merge uniqueness by website/name.
       setSuggestedCompetitors(prev => {
-        const existing = new Set(prev.map(c => c.name.toLowerCase().trim()));
-        const filtered = competitorsWithIds.filter(c => !existing.has(c.name.toLowerCase().trim()));
-        return [...prev, ...filtered];
+        const newComps = data.competitors.filter(nc => !prev.some(pc => isSameCompetitor(nc, pc)));
+        return [...prev, ...newComps];
       });
 
-      // Set keywords with IDs for selection tracking
-      const keywordsWithIds = data.keywords.map((kw, idx) => ({
-        id: `kw-${idx}`,
-        keyword: kw,
-      }));
+      // Set keywords
       setSuggestedKeywords(prev => {
-        const existing = new Set(prev.map(k => k.keyword.toLowerCase().trim()));
-        const filtered = keywordsWithIds.filter(k => !existing.has(k.keyword.toLowerCase().trim()));
-        return [...prev, ...filtered];
+        const uniqueNew = data.keywords.filter(k => !prev.includes(k));
+        return [...prev, ...uniqueNew];
       });
 
       setIsLoadingDescription(false);
@@ -317,9 +333,14 @@ export default function InputPage() {
   /* =====================
      COMPETITOR SELECTION
      ===================== */
-  const toggleCompetitor = (competitorId: string) => {
-    if (selectedCompetitors.includes(competitorId)) {
-      setSelectedCompetitors(selectedCompetitors.filter(id => id !== competitorId));
+  /* =====================
+     COMPETITOR SELECTION
+     ===================== */
+  const toggleCompetitor = (competitor: OnboardingCompetitor) => {
+    const isSelected = selectedCompetitors.some(c => isSameCompetitor(c, competitor));
+
+    if (isSelected) {
+      setSelectedCompetitors(prev => prev.filter(c => !isSameCompetitor(c, competitor)));
     } else {
       if (selectedCompetitors.length >= 5) {
         toast({
@@ -329,8 +350,7 @@ export default function InputPage() {
         });
         return;
       }
-      const newSelected = [...selectedCompetitors, competitorId];
-      setSelectedCompetitors(newSelected);
+      setSelectedCompetitors(prev => [...prev, competitor]);
     }
   };
 
@@ -354,15 +374,22 @@ export default function InputPage() {
     }
 
     const normalizedWeb = normalizeDomain(customCompWebsite);
-    const newId = `custom-comp-${Date.now()}`;
-    const newComp: CompetitorWithId = {
-      id: newId,
+    const newComp: OnboardingCompetitor = {
       name: customCompName.trim(),
       website: normalizedWeb,
     };
 
-    setSuggestedCompetitors(prev => [newComp, ...prev]);
-    setSelectedCompetitors(prev => [...prev, newId]);
+    // Add to selected
+    setSelectedCompetitors(prev => [...prev, newComp]);
+
+    // Add to suggested if not present (optional, but good for UI consistency if we want to show it there too, 
+    // but usually custom added items just go to Selected)
+    setSuggestedCompetitors(prev => {
+      if (!prev.some(c => isSameCompetitor(c, newComp))) {
+        return [newComp, ...prev];
+      }
+      return prev;
+    });
     setCustomCompName("");
     setCustomCompWebsite("");
     setIsAddingCustomComp(false);
@@ -376,14 +403,17 @@ export default function InputPage() {
   /* =====================
      KEYWORD SELECTION
      ===================== */
-  const toggleKeyword = (keywordId: string) => {
-    if (selectedKeywords.includes(keywordId)) {
-      setSelectedKeywords(selectedKeywords.filter(id => id !== keywordId));
+  /* =====================
+     KEYWORD SELECTION
+     ===================== */
+  const toggleKeyword = (keyword: string) => {
+    if (selectedKeywords.includes(keyword)) {
+      setSelectedKeywords(prev => prev.filter(k => k !== keyword));
     } else {
       if (selectedKeywords.length >= 3) {
         return;
       }
-      setSelectedKeywords([...selectedKeywords, keywordId]);
+      setSelectedKeywords(prev => [...prev, keyword]);
     }
   };
 
@@ -399,20 +429,19 @@ export default function InputPage() {
       return;
     }
 
-    const newId = `custom-kw-${Date.now()}`;
-    const newKw: Keyword = {
-      id: newId,
-      keyword: customKeyword.trim(),
-    };
+    const newKw = customKeyword.trim();
 
-    setSuggestedKeywords(prev => [newKw, ...prev]);
-    setSelectedKeywords(prev => [...prev, newId]);
+    setSelectedKeywords(prev => [...prev, newKw]);
+    setSuggestedKeywords(prev => {
+      if (!prev.includes(newKw)) return [newKw, ...prev];
+      return prev;
+    });
     setCustomKeyword("");
     setIsAddingCustomKeyword(false);
 
     toast({
       title: "Keyword Added",
-      description: `"${newKw.keyword}" has been added to your selection.`,
+      description: `"${newKw}" has been added to your selection.`,
     });
   };
 
@@ -456,17 +485,14 @@ export default function InputPage() {
 
     try {
       const trimmedBrand = brand.trim();
-      
       const normalizedWebsite = normalizeDomain(trimmedBrand);
       startAnalysis(productId);
-      const keywordStrings = selectedKeywords.map(kwId => {
-        const kw = suggestedKeywords.find(k => k.id === kwId);
-        return kw?.keyword || "";
-      }).filter(Boolean);
+
+      const keywordStrings = selectedKeywords; // Already strings
 
       if (isNewAnalysis && productId) {
         const { generateWithKeywords } = await import("@/apiHelpers");
-        const data = await generateWithKeywords(productId, keywordStrings);
+        await generateWithKeywords(productId, keywordStrings);
 
         if (productId) {
           localStorage.setItem("product_id", productId);
@@ -494,10 +520,9 @@ export default function InputPage() {
           setIsLoading(false);
         }, 10000);
       } else {
-        // Get selected competitors without IDs
-        const selectedCompetitorObjs = suggestedCompetitors
-          .filter(c => selectedCompetitors.includes(c.id))
-          .map(({ id, ...rest }) => rest);
+        // Execute both operations in parallel for better performance
+        // selectedCompetitors are already objects
+        const selectedCompetitorObjs = selectedCompetitors;
 
         // Execute both operations in parallel for better performance
         let productData;
@@ -510,7 +535,7 @@ export default function InputPage() {
             }),
             createProduct({
               website: normalizedWebsite,
-              name: brandName || trimmedBrand,
+              name: brandName,
               description: brandDescription,
               business_domain: "General",
               application_id: applicationId,
@@ -523,6 +548,7 @@ export default function InputPage() {
             title: "Error starting analysis",
             description: error.message || "Failed to initialize analysis. Please try again.",
             variant: "destructive",
+            duration: 5000, // Make error visible longer
           });
           setIsLoading(false);
           setIsAnalyzing(false);
@@ -760,26 +786,23 @@ export default function InputPage() {
                         ) : (
                           <div className="flex flex-col gap-4 relative z-10">
                             <div className="flex flex-wrap gap-3">
-                              {suggestedCompetitors
-                                .filter(c => selectedCompetitors.includes(c.id))
-                                .map(competitor => (
-                                  <Badge
-                                    key={competitor.id}
-                                    className="pl-4 pr-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 rounded-2xl flex items-center gap-3 group animate-in zoom-in-95 duration-500 shadow-lg shadow-amber-500/20 border-white/10"
+                              {selectedCompetitors.map((competitor, idx) => (
+                                <Badge
+                                  key={`${normalizeDomain(competitor.website)}-${idx}`}
+                                  className="pl-4 pr-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 rounded-2xl flex items-center gap-3 group animate-in zoom-in-95 duration-500 shadow-lg shadow-amber-500/20 border-white/10"
+                                >
+                                  <span className="font-bold text-sm">{competitor.name}</span>
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      toggleCompetitor(competitor);
+                                    }}
+                                    className="p-1.5 rounded-xl bg-black/10 hover:bg-black/20 text-white/90 hover:text-white transition-all transform hover:scale-110"
                                   >
-                                    <span className="font-bold text-sm">{competitor.name}</span>
-                                    <button
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        toggleCompetitor(competitor.id);
-                                      }}
-                                      className="p-1.5 rounded-xl bg-black/10 hover:bg-black/20 text-white/90 hover:text-white transition-all transform hover:scale-110"
-                                    >
-                                      <XCircle className="w-4 h-4" />
-                                    </button>
-                                  </Badge>
-                                ))
-                              }
+                                    <XCircle className="w-4 h-4" />
+                                  </button>
+                                </Badge>
+                              ))}
                             </div>
                             {selectedCompetitors.length < 4 && (
                               <div className="flex items-center gap-2.5 text-amber-600/90 animate-in fade-in slide-in-from-left-4 duration-500 py-1">
@@ -853,11 +876,11 @@ export default function InputPage() {
                           </div>
                           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-5">
                             {suggestedCompetitors
-                              .filter(c => !selectedCompetitors.includes(c.id))
-                              .map((competitor) => (
+                              .filter(c => !selectedCompetitors.some(sc => isSameCompetitor(sc, c))) // Check if NOT selected
+                              .map((competitor, idx) => (
                                 <button
-                                  key={competitor.id}
-                                  onClick={() => toggleCompetitor(competitor.id)}
+                                  key={`${normalizeDomain(competitor.website)}-${idx}`} // Use website/name as key
+                                  onClick={() => toggleCompetitor(competitor)} // Pass object
                                   className="flex items-start gap-4 p-5 rounded-2xl border bg-background/40 backdrop-blur-sm border-border/60 hover:border-amber-500/5 hover:bg-background/80 hover:shadow-2xl hover:shadow-amber-500/10 hover:-translate-y-1.5 transition-all duration-500 text-left group"
                                 >
                                   <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-muted to-background flex items-center justify-center shrink-0 border border-border/80 group-hover:from-amber-500/10 group-hover:to-orange-500/10 group-hover:border-amber-500/30 group-hover:scale-110 transition-all duration-500 shadow-sm">
@@ -926,25 +949,23 @@ export default function InputPage() {
                           </div>
                         ) : (
                           <div className="flex flex-wrap gap-3 relative z-10">
-                            {suggestedKeywords
-                              .filter(k => selectedKeywords.includes(k.id))
-                              .map(keyword => (
-                                <Badge
-                                  key={keyword.id}
-                                  className="pl-4 pr-2 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-700 text-white hover:from-indigo-700 hover:to-violet-800 rounded-2xl flex items-center gap-3 group animate-in zoom-in-95 duration-500 shadow-lg shadow-indigo-500/20 border-white/10"
+                            {selectedKeywords.map((keyword, idx) => (
+                              <Badge
+                                key={`${keyword}-${idx}`}
+                                className="pl-4 pr-2 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-700 text-white hover:from-indigo-700 hover:to-violet-800 rounded-2xl flex items-center gap-3 group animate-in zoom-in-95 duration-500 shadow-lg shadow-indigo-500/20 border-white/10"
+                              >
+                                <span className="font-bold text-sm text-white">{keyword}</span>
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    toggleKeyword(keyword); // Pass string
+                                  }}
+                                  className="p-1.5 rounded-xl bg-black/10 hover:bg-black/20 text-white/90 hover:text-white transition-all transform hover:scale-110"
                                 >
-                                  <span className="font-bold text-sm text-white">{keyword.keyword}</span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleKeyword(keyword.id);
-                                    }}
-                                    className="p-1.5 rounded-xl bg-black/10 hover:bg-black/20 text-white/90 hover:text-white transition-all transform hover:scale-110"
-                                  >
-                                    <XCircle className="w-4 h-4" />
-                                  </button>
-                                </Badge>
-                              ))
+                                  <XCircle className="w-4 h-4" />
+                                </button>
+                              </Badge>
+                            ))
                             }
                           </div>
                         )}
@@ -1006,11 +1027,11 @@ export default function InputPage() {
                           </div>
                           <div className="flex flex-wrap gap-3.5">
                             {suggestedKeywords
-                              .filter(k => !selectedKeywords.includes(k.id))
-                              .map((keyword) => (
+                              .filter(k => !selectedKeywords.includes(k))
+                              .map((keyword, idx) => (
                                 <button
-                                  key={keyword.id}
-                                  onClick={() => toggleKeyword(keyword.id)}
+                                  key={`${keyword}-${idx}`}
+                                  onClick={() => toggleKeyword(keyword)}
                                   disabled={selectedKeywords.length >= 3}
                                   className={cn(
                                     "px-6 py-3 rounded-2xl text-[13px] font-bold border transition-all duration-300 shadow-sm relative overflow-hidden group",
@@ -1019,7 +1040,7 @@ export default function InputPage() {
                                       : "bg-background/40 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/20 border-border/60"
                                   )}
                                 >
-                                  <span className="relative z-10">{keyword.keyword}</span>
+                                  <span className="relative z-10">{keyword}</span>
                                   {!selectedKeywords.length && (
                                     <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-violet-500/5 pointer-events-none" />
                                   )}
