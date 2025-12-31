@@ -558,6 +558,10 @@ export default function InputPage() {
         if (productData?.id) {
           startAnalysis(productData.id);
           localStorage.setItem("product_id", productData.id);
+
+          // Trigger analysis with keywords
+          const { generateWithKeywords } = await import("@/apiHelpers");
+          await generateWithKeywords(productData.id, keywordStrings);
         }
 
         localStorage.setItem("keywords", JSON.stringify(keywordStrings.map(k => ({ keyword: k }))));
