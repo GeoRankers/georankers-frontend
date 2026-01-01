@@ -6,8 +6,9 @@ import {
   RegisterRequest,
   RegisterResponse,
 } from "@/apiHelpers";
-import { setCurrentUserEmail, clearCurrentUserEmail } from "@/results/data/analyticsData";
+import { setCurrentUserEmail, clearCurrentUserEmail, clearCurrentAnalyticsData } from "@/results/data/analyticsData";
 import { setAnalysisUserEmail, clearAnalysisUserEmail } from "@/hooks/useAnalysisState";
+import { clearAnalyticsDataForCurrentUser } from "@/lib/storageKeys";
 
 /* =====================
    TYPES
@@ -125,6 +126,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         // Set user email for analytics data mapping and analysis state scoping
         setCurrentUserEmail(email);
         setAnalysisUserEmail(email);
+
+        // Clear any cached analytics data from previous user to prevent data leakage
+        clearCurrentAnalyticsData();
+        clearAnalyticsDataForCurrentUser();
+
+        // Also clear any legacy analytics data that might persist across users
+        try {
+          localStorage.removeItem('geo_analytics_data'); // Legacy global key
+        } catch {
+          // ignore
+        }
 
         // Save first name to localStorage
         localStorage.setItem("first_name", extendedUser.first_name);
