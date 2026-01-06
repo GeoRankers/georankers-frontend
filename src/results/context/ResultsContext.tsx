@@ -19,11 +19,11 @@ interface AnalyticsData {
   updated_at?: string;
 }
 
-export type TabType = 
-  | "overview" 
-  | "executive-summary" 
-  | "prompts" 
-  | "sources-all" 
+export type TabType =
+  | "overview"
+  | "executive-summary"
+  | "prompts"
+  | "sources-all"
   | "competitors-comparisons"
   | "recommendations";
 
@@ -38,7 +38,7 @@ interface ResultsContextType {
   isAnalyzing: boolean;
 }
 
-const ResultsContext = createContext<ResultsContextType | null>(null);
+export const ResultsContext = createContext<ResultsContextType | null>(null);
 
 export const useResults = () => {
   const context = useContext(ResultsContext);
@@ -65,12 +65,12 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
   const navigate = useNavigate();
   const location = useLocation();
 
-  const { 
-    isAnalyzing, 
-    triggeredAt, 
-    completeAnalysis, 
+  const {
+    isAnalyzing,
+    triggeredAt,
+    completeAnalysis,
     isNewerThanTrigger,
-    startAnalysis 
+    startAnalysis
   } = useAnalysisState();
 
   const pathToTab: Record<string, TabType> = {
@@ -124,7 +124,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
   const toastRef = useRef(toast);
   const hasShownCompletionToastRef = useRef(false);
   const pageLoadTimestampRef = useRef<number>(Date.now()); // Track when page loaded
-  
+
   const getCompletionToastShownKey = useCallback(() => {
     return getEmailScopedKey(STORAGE_KEYS.COMPLETION_TOAST_SHOWN);
   }, []);
@@ -147,19 +147,19 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
       try {
         const lastDataKey = getEmailScopedKey(STORAGE_KEYS.LAST_ANALYSIS_DATA);
         const stored = localStorage.getItem(lastDataKey);
-        
+
         if (stored) {
           const parsed = JSON.parse(stored);
           if (parsed.analytics?.length > 0) {
             const latestAnalysis = parsed.analytics[0];
-            
+
             if (latestAnalysis.status?.toLowerCase() === "completed") {
               console.log("📦 [MOUNT] Loading completed analysis from localStorage");
               setCurrentAnalytics(latestAnalysis);
               setPreviousAnalytics(latestAnalysis);
               setDataReady(true);
               setIsLoading(false);
-              
+
               // Also update analyticsData cache
               setAnalyticsData(parsed);
             }
@@ -169,7 +169,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
         console.error("Failed to load existing data:", e);
       }
     };
-    
+
     loadExistingData();
   }, []);
 
@@ -303,12 +303,12 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
             if ((currentStatus === "completed" || currentStatus === "failed") && isNewData) {
               hasReceivedDataRef.current = true;
               pollingAttemptsRef.current = 0;
-              
+
               // CRITICAL FIX: Clear old data FIRST
               console.log("🧹 [POLL] Clearing old data from storage");
               clearAnalyticsDataForCurrentUser();
               clearCurrentAnalyticsData();
-              
+
               // CRITICAL FIX: Save new data to localStorage IMMEDIATELY
               console.log("💾 [POLL] Saving new data to localStorage immediately");
               const dataToSave = {
@@ -317,11 +317,11 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
                 limit: 1,
                 product_id: productId,
               };
-              
+
               // Save to email-scoped key
               const lastDataKey = getEmailScopedKey(STORAGE_KEYS.LAST_ANALYSIS_DATA);
               const lastDateKey = getEmailScopedKey(STORAGE_KEYS.LAST_ANALYSIS_DATE);
-              
+
               try {
                 localStorage.setItem(lastDataKey, JSON.stringify(dataToSave));
                 if (currentDate) {
@@ -331,10 +331,10 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
               } catch (e) {
                 console.error("❌ [POLL] Failed to save to localStorage:", e);
               }
-              
+
               // Also update analyticsData cache
               setAnalyticsData(dataToSave);
-              
+
               // Clear analysis state
               completeAnalysis();
 
@@ -358,7 +358,7 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
               if (currentStatus === "completed" && !hasShownCompletionToastRef.current) {
                 // Check if analysis completed AFTER this page load
                 const analysisCompletedAfterPageLoad = analysisTimestamp > pageLoadTimestampRef.current;
-                
+
                 if (analysisCompletedAfterPageLoad) {
                   // Analysis completed while user is on this page -> ask to refresh
                   hasShownCompletionToastRef.current = true;
@@ -381,14 +381,14 @@ export const ResultsProvider: React.FC<ResultsProviderProps> = ({ children }) =>
             // OLD completed data found but waiting for NEW analysis
             if ((currentStatus === "completed" || currentStatus === "failed") && !isNewData) {
               console.log(`⏳ [POLL] Found OLD ${currentStatus} analysis - waiting for NEW analysis`);
-              
+
               // Show old data while waiting
               if (!currentAnalytics) {
                 setCurrentAnalytics(mostRecentAnalysis);
                 setPreviousAnalytics(mostRecentAnalysis);
                 setDataReady(true);
               }
-              
+
               setIsLoading(true);
 
               if (!hasShownStartMessageRef.current && mountedRef.current) {

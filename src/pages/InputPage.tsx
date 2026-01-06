@@ -30,6 +30,13 @@ import {
   Rocket,
   ArrowLeft,
   Plus,
+  Zap,
+  Cpu,
+  Layers,
+  ShieldCheck,
+  Network,
+  Database,
+  Orbit,
 } from "lucide-react";
 import {
   fetchOnboardingData,
@@ -39,6 +46,10 @@ import {
   getProductAnalytics,
 } from "@/apiHelpers";
 import { useAnalysisState } from "@/hooks/useAnalysisState";
+import { Header } from "@/results/layout/Header";
+import { ResultsContext, TabType } from "@/results/context/ResultsContext";
+import { SidebarProvider } from "@/components/ui/sidebar";
+
 /* =====================
    HELPERS
    ===================== */
@@ -53,6 +64,15 @@ const normalizeDomain = (input: string) => {
 const isValidKeyword = (keyword: string) => {
   if (!keyword) return false;
   return !/^\{\{keyword\d+\}\}$/.test(keyword.trim());
+};
+
+const getDisplayDomain = (url: string) => {
+  if (!url) return "";
+  try {
+    return new URL(url).hostname;
+  } catch {
+    return url;
+  }
 };
 
 import { cn } from "@/lib/utils";
@@ -124,6 +144,27 @@ export default function InputPage() {
   const [suggestedKeywords, setSuggestedKeywords] = useState<string[]>([]);
   const [selectedKeywords, setSelectedKeywords] = useState<string[]>([]);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [activeAgentIndex, setActiveAgentIndex] = useState(0);
+
+  const AGENTS = [
+    { name: "Web Crawler", status: "Scanning digital footprint...", icon: Globe, color: "text-blue-500" },
+    { name: "OpenAI", status: "Synthesizing brand identity...", icon: Zap, color: "text-emerald-500" },
+    { name: "Claude", status: "Analyzing competitive landscape...", icon: Network, color: "text-purple-500" },
+    { name: "Gemini", status: "Processing search intent...", icon: Sparkles, color: "text-orange-500" },
+    { name: "Deep Research", status: "Generating final report...", icon: ShieldCheck, color: "text-indigo-500" },
+  ];
+
+  useEffect(() => {
+    let interval: NodeJS.Timeout;
+    if (isAnalyzing) {
+      interval = setInterval(() => {
+        setActiveAgentIndex((prev) => (prev < AGENTS.length - 1 ? prev + 1 : prev));
+      }, 2000);
+    } else {
+      setActiveAgentIndex(0);
+    }
+    return () => clearInterval(interval);
+  }, [isAnalyzing]);
 
   // Manual input state
   const [customKeyword, setCustomKeyword] = useState("");
@@ -242,7 +283,7 @@ export default function InputPage() {
 
       // Still trigger the suggestions fetch to get fresh ideas alongside old ones
       if (website) {
-        handleGenerateBrandDescription(website);
+        handleGenerateBrandDescription(website, pid);
       }
     } catch (error) {
       console.error("Failed to pre-populate data:", error);
@@ -291,12 +332,12 @@ export default function InputPage() {
   /* =====================
      BRAND DESCRIPTION & ONBOARDING DATA
      ===================== */
-  const handleGenerateBrandDescription = async (url: string) => {
+  const handleGenerateBrandDescription = async (url: string, productIdParam?: string) => {
     setIsLoadingDescription(true);
 
     try {
       const normalizedUrl = normalizeDomain(url);
-      const data = await fetchOnboardingData(normalizedUrl);
+      const data = await fetchOnboardingData(normalizedUrl, undefined, productIdParam || productId || undefined);
 
       // Set brand description
       setBrandDescription(data.description || "");
@@ -608,538 +649,607 @@ export default function InputPage() {
      RENDER
      ===================== */
   return (
-    <Layout>
-      <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-        <main className="container mx-auto px-4 py-12 max-w-7xl">
-          {!isAnalyzing ? (
-            <div className="space-y-12">
-              {/* Header */}
-              <div className="space-y-4 text-center">
-                <div className="inline-flex items-center justify-center p-2 bg-primary/10 rounded-xl mb-2">
-                  <Rocket className="w-6 h-6 text-primary" />
-                </div>
-                <h1 className="text-4xl font-extrabold tracking-tight text-foreground sm:text-5xl">
-                  Brand Analysis Setup
-                </h1>
-                <p className="text-xl text-muted-foreground max-w-2xl mx-auto font-medium opacity-90">
-                  Configure your brand analysis by providing key information. We'll use this to benchmark your presence against competitors.
-                </p>
-              </div>
+    <ResultsContext.Provider value={{
+      isLoading: false,
+      dataReady: false,
+      productData: null,
+      currentAnalytics: null,
+      previousAnalytics: null,
+      activeTab: "overview",
+      setActiveTab: () => { },
+      isAnalyzing: false
+    }}>
+      <SidebarProvider defaultOpen={false}>
+        <div className="w-full">
+          <Layout showNavigation={false}>
+            <div className="min-h-screen bg-transparent">
+              <Header />
+              <main className="container mx-auto px-4 py-12 max-w-5xl mt-14 mb-24 relative">
+                {/* Background Decorations */}
+                <div className="absolute top-0 left-1/4 w-96 h-96 bg-primary/5 rounded-full blur-[100px] -z-10 animate-pulse" />
+                <div className="absolute bottom-0 right-1/4 w-96 h-96 bg-indigo-500/5 rounded-full blur-[100px] -z-10 animate-pulse delay-700" />
 
-              {/* Main Content Sections */}
-              <div className="space-y-12 pb-20">
-
-                {/* SECTION 1: Brand Details */}
-                <Card className="border-none shadow-[0_20px_50px_rgba(30,144,255,0.15)] bg-card/40 backdrop-blur-xl overflow-hidden ring-1 ring-border/50 relative group">
-                  <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-blue-600 to-indigo-600" />
-                  <div className="absolute -top-24 -right-24 w-48 h-48 bg-primary/10 rounded-full blur-3xl group-hover:bg-primary/20 transition-all duration-700" />
-
-                  <CardHeader className="pb-6">
-                    <div className="flex items-center gap-4">
-                      <div className="p-3 rounded-2xl bg-gradient-to-br from-blue-500/20 to-indigo-500/20 shadow-inner border border-blue-500/20">
-                        <Globe className="w-6 h-6 text-blue-500" />
-                      </div>
-                      <div>
-                        <CardTitle className="text-2xl font-bold tracking-tight">Brand Details</CardTitle>
-                        <CardDescription className="text-base">Enter your brand's core information</CardDescription>
-                      </div>
-                    </div>
-                  </CardHeader>
-                  <CardContent className="grid gap-10 p-8 pt-2">
-                    <div className="grid gap-8 md:grid-cols-2">
-                      {/* Brand Name */}
-                      <div className="space-y-3">
-                        <Label htmlFor="brand-name" className="text-sm font-bold flex items-center gap-2 text-foreground/80">
-                          Brand Name
-                        </Label>
-                        <Input
-                          id="brand-name"
-                          placeholder="e.g. Acme Corp"
-                          value={brandName}
-                          onChange={(e) => setBrandName(e.target.value)}
-                          disabled={isWebsiteDisabled}
-                          className="h-14 bg-background/40 border-border/60 hover:border-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all rounded-xl px-4 text-base"
-                        />
-                      </div>
-
-                      {/* Website */}
-                      <div className="space-y-3">
-                        <Label htmlFor="website" className="text-sm font-bold text-foreground/80">
-                          Website URL
-                        </Label>
-                        <div className="relative group/input">
-                          <Input
-                            id="website"
-                            placeholder="e.g. acme.com"
-                            value={brand}
-                            onChange={(e) => handleWebsiteChange(e.target.value)}
-                            className={cn(
-                              "h-14 pl-5 pr-12 bg-background/40 border-border/60 hover:border-primary/50 focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all rounded-xl text-base",
-                              dnsStatus === "valid" && "border-emerald-500/50 focus:border-emerald-500 focus:ring-emerald-500/10"
-                            )}
-                            disabled={isWebsiteDisabled}
-                          />
-                          <div className="absolute right-4 top-1/2 -translate-y-1/2 flex items-center gap-2">
-                            {dnsStatus === "checking" && <Loader2 className="w-5 h-5 animate-spin text-primary" />}
-                            {dnsStatus === "valid" && <CheckCircle className="w-6 h-6 text-emerald-500 animate-in zoom-in duration-500" />}
-                            {dnsStatus === "invalid" && <XCircle className="w-6 h-6 text-destructive animate-in shake duration-300" />}
-                          </div>
-                        </div>
-                      </div>
+                {!isAnalyzing ? (
+                  <>
+                    <div className="space-y-4 text-center mb-12">
+                      <h1 className="text-4xl font-extrabold tracking-tight text-foreground md:text-5xl lg:text-6xl">
+                        <span className="gradient-text">Analysis</span> Setup
+                      </h1>
+                      <p className="text-base text-muted-foreground max-w-2xl mx-auto leading-relaxed">
+                        Configure your brand, keywords, and competitors for AI visibility tracking.
+                      </p>
                     </div>
 
-                    {/* Description - Full Width */}
-                    {dnsStatus === "valid" && (
-                      <div className="space-y-4 animate-in fade-in slide-in-from-top-6 duration-700">
-                        <Label htmlFor="description" className="text-sm font-bold flex items-center gap-2 text-foreground/80">
-                          <Briefcase className="w-4 h-4 text-muted-foreground" />
-                          Brand Description
-                        </Label>
-                        {isLoadingDescription ? (
-                          <div className="p-10 border-2 border-dashed rounded-2xl bg-primary/5 space-y-6 flex flex-col items-center justify-center text-center overflow-hidden relative">
-                            <div className="relative z-10">
-                              <div className="p-4 rounded-3xl bg-primary/10 mb-2">
-                                <Sparkles className="w-10 h-10 text-primary animate-pulse" />
+                    <div className="lg:grid lg:grid-cols-12 lg:gap-12 items-start">
+                      {/* SIDEBAR PROGRESSION */}
+                      <aside className="lg:col-span-3 mb-10 lg:mb-0">
+                        <div className="lg:sticky lg:top-32 space-y-10 animate-in fade-in slide-in-from-left-6 duration-700">
+                          <div className="space-y-1">
+                            <h3 className="text-xs font-black uppercase tracking-[0.2em] text-muted-foreground/50">Your Progress</h3>
+                            <p className="text-sm font-bold text-foreground/80">Analysis Configuration</p>
+                          </div>
+
+                          <div className="flex flex-col gap-8 relative">
+                            {/* Vertical Line Connector */}
+                            <div className="absolute left-5 top-4 bottom-4 w-0.5 bg-muted rounded-full overflow-hidden z-0">
+                              <div
+                                className="w-full bg-emerald-500 transition-all duration-1000"
+                                style={{
+                                  height: selectedCompetitors.length >= 4 ? '100%' :
+                                    brandDescription ? '50%' : '0%'
+                                }}
+                              />
+                            </div>
+
+                            {[
+                              { id: 1, label: "Brand Identity", desc: "Identity & Vision", active: true, completed: Boolean(brandDescription) },
+                              { id: 2, label: "Competitors", desc: "Market Benchmarks", active: Boolean(brandDescription), completed: selectedCompetitors.length >= 4 },
+                              { id: 3, label: "Keywords", desc: "Visibility Targets", active: selectedCompetitors.length >= 4, completed: selectedKeywords.length >= 1 },
+                            ].map((step) => (
+                              <div key={step.id} className={cn(
+                                "flex items-start gap-5 transition-all duration-500 relative z-10",
+                                step.active ? "opacity-100" : "opacity-30"
+                              )}>
+                                <div className={cn(
+                                  "w-10 h-10 rounded-2xl flex items-center justify-center text-xs font-bold transition-all duration-500 border-2 shrink-0 bg-background",
+                                  step.completed ? "bg-emerald-500 border-emerald-500 text-white shadow-glow-emerald" :
+                                    step.active ? "bg-primary border-primary text-primary-foreground shadow-glow" :
+                                      "border-muted text-muted-foreground"
+                                )}>
+                                  {step.completed ? <Check className="w-5 h-5" /> : step.id}
+                                </div>
+                                <div className="flex flex-col gap-0.5 pt-0.5">
+                                  <span className={cn(
+                                    "text-xs font-black uppercase tracking-wider",
+                                    step.active ? "text-foreground" : "text-muted-foreground"
+                                  )}>{step.label}</span>
+                                  <span className="text-[10px] font-bold text-muted-foreground/60 tracking-tight">{step.desc}</span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+
+                          {/* Requirement Pill */}
+                          <div className="p-4 rounded-2xl bg-primary/5 border border-primary/10 backdrop-blur-sm flex flex-col gap-3 transition-all duration-300 hover:bg-primary/10">
+                            <div className="flex items-center gap-2 text-[10px] font-bold text-primary uppercase tracking-widest">
+                              <Tag className="w-3 h-3" />
+                              Requirements
+                            </div>
+                            <div className="space-y-2">
+                              <div className="flex items-center justify-between text-[10px] font-bold">
+                                <span className={selectedCompetitors.length >= 4 ? "text-emerald-500" : "text-muted-foreground/70"}>Min. 4 Competitors</span>
+                                {selectedCompetitors.length >= 4 ? (
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                ) : (
+                                  <div className="w-3 h-3 rounded-full border border-muted-foreground/30" />
+                                )}
+                              </div>
+                              <div className="flex items-center justify-between text-[10px] font-bold">
+                                <span className={selectedKeywords.length >= 1 ? "text-emerald-500" : "text-muted-foreground/70"}>Min. 1 Keyword</span>
+                                {selectedKeywords.length >= 1 ? (
+                                  <Check className="w-3 h-3 text-emerald-500" />
+                                ) : (
+                                  <div className="w-3 h-3 rounded-full border border-muted-foreground/30" />
+                                )}
                               </div>
                             </div>
-                            <div className="space-y-3 w-full max-w-xs relative z-10">
-                              <p className="text-base font-bold text-foreground">Analyzing presence...</p>
-                              <div className="h-2 bg-muted rounded-full overflow-hidden shadow-inner">
-                                <div className="h-full bg-gradient-to-r from-primary to-indigo-500 animate-progress-loop" />
+                          </div>
+                        </div>
+                      </aside>
+
+                      {/* MAIN CONTENT AREA */}
+                      <div className="lg:col-span-9 space-y-12">
+                        {/* SECTION 1: Brand Details */}
+                        <Card className="border-none shadow-elevated bg-card/60 backdrop-blur-md overflow-hidden relative group transition-all duration-500 hover:shadow-glow/20">
+                          <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                          <CardHeader className="pb-4 pt-8">
+                            <div className="flex items-center gap-4">
+                              <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 shadow-sm transition-transform duration-500 group-hover:scale-110">
+                                <Globe className="w-5 h-5 text-primary" />
                               </div>
-                              <p className="text-xs text-muted-foreground font-medium italic opacity-80">Generating an optimized brand profile</p>
-                            </div>
-                            {/* Decorative Blobs */}
-                            <div className="absolute -bottom-10 -left-10 w-32 h-32 bg-primary/10 blur-[60px] rounded-full" />
-                            <div className="absolute -top-10 -right-10 w-32 h-32 bg-indigo-500/10 blur-[60px] rounded-full" />
-                          </div>
-                        ) : (
-                          <div className="relative group/textarea">
-                            <Textarea
-                              id="description"
-                              value={brandDescription}
-                              onChange={(e) => setBrandDescription(e.target.value)}
-                              className="min-h-[160px] bg-background/40 border-border/60 resize-none focus:border-primary focus:ring-4 focus:ring-primary/10 transition-all p-5 leading-relaxed rounded-2xl text-base shadow-sm"
-                              placeholder="Describe your brand and its offerings..."
-                            />
-                            <div className="absolute bottom-4 right-4 flex items-center gap-2 text-[11px] font-bold text-primary bg-primary/5 px-3 py-1.5 rounded-full border border-primary/20 backdrop-blur-md">
-                              <Sparkles className="w-3 h-3" />
-                              AI-Optimized
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-
-                {/* ========== SECTION 2: COMPETITORS ========== */}
-                {brandDescription && (
-                  <Card className="border-none shadow-[0_20px_50px_rgba(245,158,11,0.15)] bg-card/40 backdrop-blur-xl overflow-hidden ring-1 ring-border/50 animate-in fade-in slide-in-from-bottom-12 duration-1000 relative group">
-                    <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-amber-500 to-orange-600" />
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-amber-500/10 rounded-full blur-3xl group-hover:bg-amber-500/20 transition-all duration-700" />
-
-                    <CardHeader className="pb-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 rounded-2xl bg-gradient-to-br from-amber-500/20 to-orange-500/20 shadow-inner border border-amber-500/20">
-                            <Users className="w-6 h-6 text-amber-500" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-2xl font-bold tracking-tight">Competitors</CardTitle>
-                            <CardDescription className="text-base text-muted-foreground/80">Choose from our suggestions or add your own competitors to benchmark against</CardDescription>
-                          </div>
-                        </div>
-                        <div className={cn(
-                          "px-6 py-2 rounded-full text-sm font-bold border transition-all duration-500 shadow-xl backdrop-blur-md",
-                          selectedCompetitors.length >= 4
-                            ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-600 border-emerald-500/30 shadow-emerald-500/10"
-                            : "bg-gradient-to-r from-amber-500/20 to-orange-500/20 text-amber-600 border-amber-500/30 shadow-amber-500/10"
-                        )}>
-                          {selectedCompetitors.length} Selected
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-10 p-8 pt-2">
-
-                      {/* Selected Zone */}
-                      <div className="p-6 rounded-2xl border bg-muted/30 backdrop-blur-md min-h-[120px] flex flex-col gap-5 relative overflow-hidden shadow-inner border-border/40">
-                        <div className="absolute inset-0 bg-gradient-to-br from-background/50 to-transparent pointer-events-none" />
-                        <div className="flex items-center justify-between relative z-10">
-                          <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">Your Active Benchmark Group</span>
-                          {selectedCompetitors.length > 0 && (
-                            <button
-                              onClick={() => setSelectedCompetitors([])}
-                              className="text-[11px] font-bold uppercase tracking-wider text-muted-foreground hover:text-destructive transition-all hover:translate-x-1"
-                            >
-                              Reset Group
-                            </button>
-                          )}
-                        </div>
-                        {selectedCompetitors.length === 0 ? (
-                          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-2 py-4 relative z-10">
-                            <div className="w-10 h-10 rounded-full border border-dashed border-muted-foreground/20 flex items-center justify-center">
-                              <Plus className="w-5 h-5 text-muted-foreground/30" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-muted-foreground/70 uppercase tracking-tight">No competitors tracked</p>
-                              <p className="text-xs text-muted-foreground/40 font-medium">Add suggestions or create your own</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-col gap-4 relative z-10">
-                            <div className="flex flex-wrap gap-3">
-                              {selectedCompetitors.map((competitor, idx) => (
-                                <Badge
-                                  key={`${normalizeDomain(competitor.website)}-${idx}`}
-                                  className="pl-4 pr-2 py-2.5 bg-gradient-to-r from-amber-500 to-orange-600 text-white hover:from-amber-600 hover:to-orange-700 rounded-2xl flex items-center gap-3 group animate-in zoom-in-95 duration-500 shadow-lg shadow-amber-500/20 border-white/10"
-                                >
-                                  <span className="font-bold text-sm">{competitor.name}</span>
-                                  <button
-                                    onClick={(e) => {
-                                      e.stopPropagation();
-                                      toggleCompetitor(competitor);
-                                    }}
-                                    className="p-1.5 rounded-xl bg-black/10 hover:bg-black/20 text-white/90 hover:text-white transition-all transform hover:scale-110"
-                                  >
-                                    <XCircle className="w-4 h-4" />
-                                  </button>
-                                </Badge>
-                              ))}
-                            </div>
-                            {selectedCompetitors.length < 4 && (
-                              <div className="flex items-center gap-2.5 text-amber-600/90 animate-in fade-in slide-in-from-left-4 duration-500 py-1">
-                                <Sparkles className="w-4 h-4" />
-                                <span className="text-xs font-bold tracking-tight">Expand to {4} competitors to reveal deep-bench insights (at least {4 - selectedCompetitors.length} more)</span>
+                              <div>
+                                <CardTitle className="text-xl font-bold tracking-tight">Brand Details</CardTitle>
+                                <CardDescription className="text-sm text-muted-foreground/80">How the world recognizes your business</CardDescription>
                               </div>
-                            )}
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="space-y-6">
-                        {/* Ghost Trigger Manual Entry */}
-                        {!isAddingCustomComp ? (
-                          <button
-                            onClick={() => setIsAddingCustomComp(true)}
-                            className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-muted/40 border border-border/40 hover:bg-amber-500/5 hover:border-amber-500/30 hover:text-amber-600 transition-all group w-full sm:w-fit shadow-sm hover:shadow-md hover:-translate-y-0.5"
-                          >
-                            <div className="p-1 rounded-lg bg-muted group-hover:bg-amber-500 group-hover:text-white transition-all">
-                              <Plus className="w-4 h-4" />
                             </div>
-                            <span className="text-sm font-bold uppercase tracking-wider">Add Custom Entity</span>
-                          </button>
-                        ) : (
-                          <div className="flex flex-col sm:flex-row items-center gap-4 p-4 rounded-2xl bg-amber-500/5 border border-amber-500/30 animate-in zoom-in-95 duration-300 shadow-xl backdrop-blur-md">
-                            <div className="flex-1 w-full grid grid-cols-1 sm:grid-cols-2 gap-3">
-                              <div className="relative group/input">
-                                <input
-                                  autoFocus
-                                  placeholder="Competitor Name"
-                                  value={customCompName}
-                                  onChange={(e) => setCustomCompName(e.target.value)}
-                                  className="w-full h-11 bg-background/60 border border-border/40 hover:border-amber-500/30 focus:border-amber-500/50 rounded-xl text-sm placeholder:text-muted-foreground/50 focus:ring-4 focus:ring-amber-500/5 focus:outline-none px-4 transition-all"
+                          </CardHeader>
+                          <CardContent className="grid gap-8 p-8 pt-0">
+                            <div className="grid grid-cols-2 gap-4">
+                              {/* Brand Name */}
+                              <div className="space-y-2">
+                                <Label htmlFor="brand-name" className="text-xs font-medium text-foreground/80">
+                                  Brand Name
+                                </Label>
+                                <Input
+                                  id="brand-name"
+                                  placeholder="e.g. Acme Corp"
+                                  value={brandName}
+                                  onChange={(e) => setBrandName(e.target.value)}
+                                  disabled={isWebsiteDisabled}
+                                  className="h-10 text-sm bg-background border-input hover:border-primary/50 focus:border-primary transition-all rounded-md px-3"
                                 />
                               </div>
-                              <div className="flex items-center gap-2">
-                                <input
-                                  placeholder="Website (e.g. competitor.com)"
-                                  value={customCompWebsite}
-                                  onChange={(e) => setCustomCompWebsite(e.target.value)}
-                                  className="flex-1 h-11 bg-background/60 border border-border/40 hover:border-amber-500/30 focus:border-amber-500/50 rounded-xl text-sm placeholder:text-muted-foreground/50 focus:ring-4 focus:ring-amber-500/5 focus:outline-none px-4 transition-all"
-                                />
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  <Button
-                                    onClick={handleAddCustomCompetitor}
-                                    disabled={!customCompName.trim() || !customCompWebsite.trim()}
-                                    size="sm"
-                                    className="h-11 px-5 text-xs font-bold uppercase bg-amber-500 text-white hover:bg-amber-600 shadow-lg shadow-amber-500/20 rounded-xl transition-all active:scale-95"
-                                  >
-                                    Add
-                                  </Button>
-                                  <Button
-                                    onClick={() => setIsAddingCustomComp(false)}
-                                    variant="ghost"
-                                    size="sm"
-                                    className="h-11 w-11 p-0 rounded-xl hover:bg-destructive/10 hover:text-destructive transition-colors"
-                                  >
-                                    <XCircle className="w-5 h-5" />
-                                  </Button>
+
+                              {/* Website */}
+                              <div className="space-y-2">
+                                <Label htmlFor="website" className="text-xs font-medium text-foreground/80">
+                                  Website URL
+                                </Label>
+                                <div className="relative group/input">
+                                  <Input
+                                    id="website"
+                                    placeholder="e.g. acme.com"
+                                    value={brand}
+                                    onChange={(e) => handleWebsiteChange(e.target.value)}
+                                    className={cn(
+                                      "h-10 pl-3 pr-10 text-sm bg-background border-input hover:border-primary/50 focus:border-primary transition-all rounded-md",
+                                      dnsStatus === "valid" && "border-emerald-500/50 focus:border-emerald-500"
+                                    )}
+                                    disabled={isWebsiteDisabled}
+                                  />
+                                  <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-2">
+                                    {dnsStatus === "checking" && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                                    {dnsStatus === "valid" && <CheckCircle className="w-4 h-4 text-emerald-500 animate-in zoom-in duration-300" />}
+                                    {dnsStatus === "invalid" && <XCircle className="w-4 h-4 text-destructive animate-in shake duration-300" />}
+                                  </div>
                                 </div>
                               </div>
                             </div>
-                          </div>
-                        )}
 
-                        {/* Suggestions Grid */}
-                        <div className="space-y-6">
-                          <div className="flex items-center gap-3">
-                            <Label className="text-sm font-bold text-foreground/80 uppercase tracking-widest px-1">Curated Benchmarks</Label>
-                            <div className="h-px flex-1 bg-gradient-to-r from-border/50 to-transparent" />
-                          </div>
-                          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-2 lg:grid-cols-3 gap-5">
-                            {suggestedCompetitors
-                              .filter(c => !selectedCompetitors.some(sc => isSameCompetitor(sc, c))) // Check if NOT selected
-                              .map((competitor, idx) => (
-                                <button
-                                  key={`${normalizeDomain(competitor.website)}-${idx}`} // Use website/name as key
-                                  onClick={() => toggleCompetitor(competitor)} // Pass object
-                                  className="flex items-start gap-4 p-5 rounded-2xl border bg-background/40 backdrop-blur-sm border-border/60 hover:border-amber-500/5 hover:bg-background/80 hover:shadow-2xl hover:shadow-amber-500/10 hover:-translate-y-1.5 transition-all duration-500 text-left group"
-                                >
-                                  <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-muted to-background flex items-center justify-center shrink-0 border border-border/80 group-hover:from-amber-500/10 group-hover:to-orange-500/10 group-hover:border-amber-500/30 group-hover:scale-110 transition-all duration-500 shadow-sm">
-                                    <span className="text-base font-extrabold text-amber-600">{competitor.name.charAt(0)}</span>
-                                  </div>
-                                  <div className="min-w-0 flex-1 space-y-1.5">
-                                    <div className="font-bold text-base truncate group-hover:text-amber-600 transition-colors duration-300">{competitor.name}</div>
-                                    <div className="text-[11px] text-muted-foreground/60 truncate font-mono uppercase tracking-tighter group-hover:text-muted-foreground transition-colors duration-300">
-                                      {competitor.website.replace(/^https?:\/\/(www\.)?/, "").replace(/\/$/, "")}
+                            {/* Description - Full Width */}
+                            {dnsStatus === "valid" && (
+                              <div className="space-y-4 animate-in fade-in slide-in-from-top-6 duration-700">
+                                <div className="flex items-center justify-between">
+                                  <Label htmlFor="description" className="text-sm font-bold flex items-center gap-2 text-foreground/90">
+                                    <Briefcase className="w-4 h-4 text-primary" />
+                                    Brand Description
+                                  </Label>
+                                  {!productId && (
+                                    <div className="flex items-center gap-1.5 text-[10px] font-bold text-primary bg-primary/10 px-3 py-1.5 rounded-full border border-primary/20 animate-pulse shadow-sm">
+                                      <Sparkles className="w-3.5 h-3.5" />
+                                      AI INTELLIGENCE ACTIVE
+                                    </div>
+                                  )}
+                                </div>
+                                {isLoadingDescription ? (
+                                  <div className="p-12 border-2 border-dashed border-primary/20 rounded-2xl bg-primary/5 space-y-6 flex flex-col items-center justify-center text-center overflow-hidden relative">
+                                    <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/5 to-transparent animate-progress-loop" />
+                                    <div className="relative">
+                                      <div className="w-16 h-16 rounded-full border-4 border-primary/10 border-t-primary animate-spin" />
+                                      <Sparkles className="w-6 h-6 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2" />
+                                    </div>
+                                    <div className="space-y-2 relative">
+                                      <p className="text-lg font-bold text-foreground">Analyzing Digital Footprint</p>
+                                      <p className="text-sm text-muted-foreground">Synthesizing brand character and market positioning...</p>
                                     </div>
                                   </div>
-                                </button>
-                              ))
-                            }
-                          </div>
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                )}
+                                ) : (
+                                  <div className="relative group/textarea">
+                                    <div className="absolute -inset-1 bg-gradient-to-r from-primary/10 to-transparent rounded-xl opacity-0 group-focus-within/textarea:opacity-100 transition-opacity duration-500" />
+                                    <Textarea
+                                      id="description"
+                                      value={brandDescription}
+                                      onChange={(e) => setBrandDescription(e.target.value)}
+                                      disabled={!!productId}
+                                      className={cn(
+                                        "min-h-[160px] text-base bg-background/50 border-input resize-none focus:border-primary transition-all p-6 leading-relaxed rounded-xl shadow-inner relative z-10",
+                                        productId && "opacity-60 cursor-not-allowed bg-muted/30"
+                                      )}
+                                      placeholder="Describe your brand and its offerings..."
+                                    />
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </CardContent>
+                        </Card>
 
-                {/* ========== SECTION 3: KEYWORDS ========== */}
-                {selectedCompetitors.length >= 1 && suggestedKeywords.length > 0 && (
-                  <Card className="border-none shadow-[0_20px_50px_rgba(79,70,229,0.15)] bg-card/40 backdrop-blur-xl overflow-hidden ring-1 ring-border/50 animate-in fade-in slide-in-from-bottom-12 duration-1000 delay-150 relative group">
-                    <div className="absolute top-0 left-0 w-2 h-full bg-gradient-to-b from-indigo-500 to-violet-600" />
-                    <div className="absolute -top-24 -right-24 w-48 h-48 bg-indigo-500/10 rounded-full blur-3xl group-hover:bg-indigo-500/20 transition-all duration-700" />
+                        {/* ========== SECTION 2: COMPETITORS ========== */}
+                        {brandDescription && (
+                          <Card className="border-none shadow-elevated bg-card/60 backdrop-blur-md overflow-hidden relative animate-in fade-in slide-in-from-bottom-10 duration-700 hover:shadow-glow/20 transition-all duration-500">
+                            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
+                            <CardHeader className="pb-4 pt-8">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                  <div className="p-3 rounded-2xl bg-amber-500/10 border border-amber-500/20 shadow-sm">
+                                    <Users className="w-5 h-5 text-amber-500" />
+                                  </div>
+                                  <div>
+                                    <CardTitle className="text-xl font-bold tracking-tight">Competitive Brands</CardTitle>
+                                    <CardDescription className="text-sm text-muted-foreground/80">Select key competitors to measure against</CardDescription>
+                                  </div>
+                                </div>
+                                <Badge variant="secondary" className={cn(
+                                  "h-8 px-4 font-bold transition-all duration-500 shadow-sm rounded-full",
+                                  selectedCompetitors.length >= 4
+                                    ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                    : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                                )}>
+                                  {selectedCompetitors.length} / 5 Selected
+                                </Badge>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-8 p-8 pt-0">
 
-                    <CardHeader className="pb-6">
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-4">
-                          <div className="p-3 rounded-2xl bg-gradient-to-br from-indigo-500/20 to-violet-500/20 shadow-inner border border-indigo-500/20">
-                            <Tag className="w-6 h-6 text-indigo-500" />
-                          </div>
-                          <div>
-                            <CardTitle className="text-2xl font-bold tracking-tight">Target Keywords</CardTitle>
-                            <CardDescription className="text-base text-muted-foreground/80">Select recommended keywords or add your own specific industry terms</CardDescription>
-                          </div>
-                        </div>
-                        <div className={cn(
-                          "px-6 py-2 rounded-full text-sm font-bold border transition-all duration-500 shadow-xl backdrop-blur-md",
-                          selectedKeywords.length >= 1
-                            ? "bg-gradient-to-r from-emerald-500/20 to-teal-500/20 text-emerald-600 border-emerald-500/30 shadow-emerald-500/10"
-                            : "bg-gradient-to-r from-indigo-500/20 to-violet-500/20 text-indigo-600 border-indigo-500/30 shadow-indigo-500/10"
-                        )}>
-                          {selectedKeywords.length} Selected
-                        </div>
-                      </div>
-                    </CardHeader>
-                    <CardContent className="space-y-10 p-8 pt-2">
+                              {/* Selected Zone */}
+                              <div className="p-6 rounded-2xl border-2 border-dashed border-muted bg-muted/20 min-h-[100px] flex flex-col gap-4 relative overflow-hidden group/selected">
+                                <div className="flex items-center justify-between relative z-10">
+                                  <span className="text-[10px] font-black uppercase tracking-[0.2em] text-muted-foreground/60">Active Comparison Group</span>
+                                  {selectedCompetitors.length > 0 && (
+                                    <button
+                                      onClick={() => setSelectedCompetitors([])}
+                                      className="text-[10px] font-bold text-muted-foreground hover:text-destructive transition-colors uppercase tracking-wider"
+                                    >
+                                      Clear All
+                                    </button>
+                                  )}
+                                </div>
+                                {selectedCompetitors.length === 0 ? (
+                                  <div className="flex-1 flex flex-col items-center justify-center text-center space-y-1 py-2">
+                                    <p className="text-xs text-muted-foreground/60 font-medium">Add competitors</p>
+                                  </div>
+                                ) : (
+                                  <div className="flex flex-wrap gap-2">
+                                    {selectedCompetitors.map((competitor, idx) => (
+                                      <Badge
+                                        key={`${normalizeDomain(competitor.website)}-${idx}`}
+                                        variant="secondary"
+                                        className="pl-4 pr-2 py-2 bg-background border shadow-elevated hover:bg-muted/80 flex items-center gap-3 group animate-in zoom-in-95 duration-300 rounded-xl"
+                                      >
+                                        <div className="w-5 h-5 rounded bg-primary/10 flex items-center justify-center text-[10px] font-bold text-primary">
+                                          {competitor.name.charAt(0)}
+                                        </div>
+                                        <span className="font-bold text-sm">{competitor.name}</span>
+                                        <button
+                                          onClick={(e) => {
+                                            e.stopPropagation();
+                                            toggleCompetitor(competitor);
+                                          }}
+                                          className="p-1 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
+                                        >
+                                          <XCircle className="w-4 h-4" />
+                                        </button>
+                                      </Badge>
+                                    ))}
+                                  </div>
+                                )}
+                              </div>
 
-                      {/* Selected Zone */}
-                      <div className="p-6 rounded-2xl border bg-muted/30 backdrop-blur-md min-h-[120px] flex flex-col gap-5 relative overflow-hidden shadow-inner border-border/40">
-                        <div className="absolute inset-0 bg-gradient-to-br from-background/50 to-transparent pointer-events-none" />
-                        <div className="flex items-center justify-between relative z-10">
-                          <span className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-foreground/70">Top Relevance Focus</span>
-                        </div>
-                        {selectedKeywords.length === 0 ? (
-                          <div className="flex-1 flex flex-col items-center justify-center text-center space-y-2 py-4 relative z-10">
-                            <div className="w-10 h-10 rounded-full border border-dashed border-muted-foreground/20 flex items-center justify-center">
-                              <Tag className="w-5 h-5 text-muted-foreground/30" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-bold text-muted-foreground/70 uppercase tracking-tight">Focus list empty</p>
-                              <p className="text-xs text-muted-foreground/40 font-medium">Keywords guide AI search testing intensity</p>
-                            </div>
-                          </div>
-                        ) : (
-                          <div className="flex flex-wrap gap-3 relative z-10">
-                            {selectedKeywords.map((keyword, idx) => (
-                              <Badge
-                                key={`${keyword}-${idx}`}
-                                className="pl-4 pr-2 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-700 text-white hover:from-indigo-700 hover:to-violet-800 rounded-2xl flex items-center gap-3 group animate-in zoom-in-95 duration-500 shadow-lg shadow-indigo-500/20 border-white/10"
-                              >
-                                <span className="font-bold text-sm text-white">{keyword}</span>
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    toggleKeyword(keyword); // Pass string
-                                  }}
-                                  className="p-1.5 rounded-xl bg-black/10 hover:bg-black/20 text-white/90 hover:text-white transition-all transform hover:scale-110"
-                                >
-                                  <XCircle className="w-4 h-4" />
-                                </button>
-                              </Badge>
-                            ))
-                            }
-                          </div>
+                              {/* Suggested Zone */}
+                              <div className="space-y-3">
+                                <Label className="text-xs font-medium text-foreground/70">Suggested Competitors</Label>
+                                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+                                  {suggestedCompetitors.filter(c => !selectedCompetitors.some(sc => isSameCompetitor(sc, c))).slice(0, 9).map((competitor, idx) => (
+                                    <button
+                                      key={`${normalizeDomain(competitor.website)}-suggestion-${idx}`}
+                                      onClick={() => toggleCompetitor(competitor)}
+                                      className="flex items-center gap-4 p-4 rounded-xl border bg-card/40 hover:bg-card hover:border-primary/50 hover:shadow-glow/10 hover:-translate-y-1 transition-all duration-300 text-left group relative overflow-hidden"
+                                    >
+                                      <div className="absolute inset-0 bg-gradient-to-br from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
+                                      <div className="w-10 h-10 rounded-lg bg-muted flex items-center justify-center text-sm font-black text-muted-foreground group-hover:bg-primary/10 group-hover:text-primary transition-all duration-500 relative z-10">
+                                        {competitor.name.charAt(0)}
+                                      </div>
+                                      <div className="flex-1 min-w-0 relative z-10">
+                                        <p className="text-sm font-bold truncate group-hover:text-primary transition-colors">{competitor.name}</p>
+                                        <p className="text-[10px] text-muted-foreground font-medium truncate opacity-70 group-hover:opacity-100 transition-opacity">{getDisplayDomain(competitor.website)}</p>
+                                      </div>
+                                      <Plus className="w-5 h-5 text-muted-foreground group-hover:text-primary transition-all duration-500 opacity-20 group-hover:opacity-100 group-hover:rotate-90 relative z-10" />
+                                    </button>
+                                  ))}
+                                  {/* Manual Add Card */}
+                                  {isAddingCustomComp ? (
+                                    <div className="col-span-full sm:col-span-2 md:col-span-1 p-3 rounded-md border border-dashed bg-muted/20 flex flex-col gap-2 animate-in fade-in zoom-in-95">
+                                      <Input
+                                        placeholder="Name"
+                                        value={customCompName}
+                                        onChange={(e) => setCustomCompName(e.target.value)}
+                                        className="h-8 text-xs bg-background"
+                                        autoFocus
+                                      />
+                                      <Input
+                                        placeholder="Website"
+                                        value={customCompWebsite}
+                                        onChange={(e) => setCustomCompWebsite(e.target.value)}
+                                        className="h-8 text-xs bg-background"
+                                      />
+                                      <div className="flex gap-2">
+                                        <Button size="sm" variant="default" onClick={handleAddCustomCompetitor} className="h-7 text-xs flex-1">Add</Button>
+                                        <Button size="sm" variant="ghost" onClick={() => setIsAddingCustomComp(false)} className="h-7 text-xs px-2">Cancel</Button>
+                                      </div>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setIsAddingCustomComp(true)}
+                                      className="flex flex-col items-center justify-center gap-2 p-3 rounded-md border border-dashed hover:border-primary/50 hover:bg-primary/5 transition-all text-muted-foreground hover:text-primary group h-full min-h-[60px]"
+                                    >
+                                      <Plus className="w-5 h-5" />
+                                      <span className="text-xs font-medium">Add Manual</span>
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
                         )}
-                      </div>
 
-                      <div className="space-y-8">
-                        {/* Ghost Trigger Manual Entry */}
-                        {!isAddingCustomKeyword ? (
-                          <button
-                            onClick={() => setIsAddingCustomKeyword(true)}
-                            className="flex items-center gap-2.5 px-6 py-3.5 rounded-2xl bg-muted/40 border border-border/40 hover:bg-indigo-500/5 hover:border-indigo-500/30 hover:text-indigo-600 transition-all group w-full sm:w-fit shadow-sm hover:shadow-md hover:-translate-y-0.5"
+
+                        {/* ========== SECTION 3: KEYWORDS ========== */}
+                        {selectedCompetitors.length >= 4 && (
+                          <Card className="border-none shadow-elevated bg-card/60 backdrop-blur-md overflow-hidden relative animate-in fade-in slide-in-from-bottom-10 duration-700 delay-100 hover:shadow-glow/20 transition-all duration-500">
+                            <div className="absolute top-0 left-0 w-full h-[2px] bg-gradient-to-r from-transparent via-primary/50 to-transparent" />
+                            <CardHeader className="pb-4 pt-8">
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-4">
+                                  <div className="p-3 rounded-2xl bg-primary/10 border border-primary/20 shadow-sm">
+                                    <Search className="w-5 h-5 text-primary" />
+                                  </div>
+                                  <div>
+                                    <CardTitle className="text-xl font-bold tracking-tight">Keywords</CardTitle>
+                                    <CardDescription className="text-sm text-muted-foreground/80">Target queries to analyze for visibility</CardDescription>
+                                  </div>
+                                </div>
+                                <Badge variant="secondary" className={cn(
+                                  "h-8 px-4 font-bold transition-all duration-500 shadow-sm rounded-full",
+                                  selectedKeywords.length >= 1
+                                    ? "bg-emerald-500/10 text-emerald-600 border border-emerald-500/20"
+                                    : "bg-amber-500/10 text-amber-600 border border-amber-500/20"
+                                )}>
+                                  {selectedKeywords.length} / 3 Selected
+                                </Badge>
+                              </div>
+                            </CardHeader>
+                            <CardContent className="space-y-8 p-8 pt-0">
+
+                              {/* Selected Zone */}
+                              <div className="flex flex-wrap gap-2 min-h-[40px] p-4 rounded-lg border bg-muted/30">
+                                {selectedKeywords.length === 0 ? (
+                                  <p className="text-xs text-muted-foreground/50 w-full text-center">Add Keywords</p>
+                                ) : (
+                                  selectedKeywords.map((keyword, idx) => (
+                                    <Badge
+                                      key={`selected-kw-${idx}-${keyword}`}
+                                      variant="secondary"
+                                      className="pl-3 pr-1.5 py-1 bg-background border shadow-sm flex items-center gap-2 group animate-in scale-95 duration-200"
+                                    >
+                                      <span className="font-medium text-xs">{keyword}</span>
+                                      <button
+                                        onClick={() => toggleKeyword(keyword)}
+                                        className="p-0.5 rounded-full hover:bg-destructive/10 hover:text-destructive transition-colors"
+                                      >
+                                        <XCircle className="w-3 h-3" />
+                                      </button>
+                                    </Badge>
+                                  ))
+                                )}
+                              </div>
+
+                              {/* Suggestions */}
+                              <div className="space-y-3">
+                                <Label className="text-xs font-medium text-foreground/70">Suggested Keywords</Label>
+                                <div className="flex flex-wrap gap-2">
+                                  {suggestedKeywords.filter(k => !selectedKeywords.includes(k)).slice(0, 15).map((keyword, idx) => (
+                                    <button
+                                      key={`suggestion-kw-${idx}`}
+                                      onClick={() => toggleKeyword(keyword)}
+                                      className="px-4 py-2 rounded-full border bg-card/40 text-xs font-bold text-foreground/70 hover:border-primary/50 hover:bg-primary/5 hover:text-primary hover:scale-105 hover:shadow-glow/5 transition-all duration-300 active:scale-95"
+                                    >
+                                      + {keyword}
+                                    </button>
+                                  ))}
+
+                                  {/* Manual Add */}
+                                  {isAddingCustomKeyword ? (
+                                    <div className="flex items-center gap-2 animate-in fade-in zoom-in-95">
+                                      <Input
+                                        value={customKeyword}
+                                        onChange={(e) => setCustomKeyword(e.target.value)}
+                                        placeholder="New Keyword"
+                                        className="h-7 w-32 text-xs bg-background rounded-full"
+                                        autoFocus
+                                        onKeyDown={(e) => e.key === "Enter" && handleAddCustomKeyword()}
+                                      />
+                                      <Button size="sm" variant="ghost" onClick={handleAddCustomKeyword} className="h-7 w-7 p-0 rounded-full"><Check className="w-4 h-4 text-emerald-500" /></Button>
+                                      <Button size="sm" variant="ghost" onClick={() => setIsAddingCustomKeyword(false)} className="h-7 w-7 p-0 rounded-full"><XCircle className="w-4 h-4 text-muted-foreground" /></Button>
+                                    </div>
+                                  ) : (
+                                    <button
+                                      onClick={() => setIsAddingCustomKeyword(true)}
+                                      className="px-3 py-1.5 rounded-full border border-dashed border-muted-foreground/30 text-xs font-medium text-muted-foreground hover:border-primary/50 hover:text-primary transition-all flex items-center gap-1"
+                                    >
+                                      <Plus className="w-3 h-3" /> Add Custom
+                                    </button>
+                                  )}
+                                </div>
+                              </div>
+                            </CardContent>
+                          </Card>
+                        )}
+
+
+                        {/* START ANALYSIS BUTTON */}
+                        <div className="flex justify-center pt-8 z-30">
+                          <Button
+                            size="lg"
+                            className={cn(
+                              "h-16 px-12 rounded-full shadow-glow font-black text-base transition-all duration-700 flex items-center gap-3 overflow-hidden group/btn relative",
+                              canProceed
+                                ? "bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-600 hover:scale-105 active:scale-95 text-white opacity-100"
+                                : "bg-muted text-muted-foreground scale-95 opacity-50 cursor-not-allowed"
+                            )}
+                            onClick={handleStartAnalysis}
+                            disabled={!canProceed || isLoading}
                           >
-                            <div className="p-1 rounded-lg bg-muted group-hover:bg-indigo-500 group-hover:text-white transition-all">
-                              <Plus className="w-4 h-4" />
-                            </div>
-                            <span className="text-sm font-bold uppercase tracking-wider">Define Custom keyword</span>
-                          </button>
-                        ) : (
-                          <div className="flex items-center gap-4 p-4 rounded-2xl bg-indigo-500/5 border border-indigo-500/30 animate-in zoom-in-95 duration-300 shadow-xl backdrop-blur-md">
-                            <input
-                              autoFocus
-                              placeholder="Add your own keyword..."
-                              value={customKeyword}
-                              onChange={(e) => setCustomKeyword(e.target.value)}
-                              onKeyDown={(e) => {
-                                if (e.key === 'Enter') {
-                                  e.preventDefault();
-                                  handleAddCustomKeyword();
-                                }
-                              }}
-                              className="flex-1 h-11 bg-background/60 border border-border/40 hover:border-indigo-500/30 focus:border-indigo-500/50 rounded-xl text-sm placeholder:text-muted-foreground/50 focus:ring-4 focus:ring-indigo-500/5 focus:outline-none px-4 transition-all"
-                            />
-                            <div className="flex items-center gap-1.5 shrink-0">
-                              <Button
-                                onClick={handleAddCustomKeyword}
-                                disabled={!customKeyword.trim()}
-                                size="sm"
-                                className="h-11 px-5 text-xs font-bold uppercase bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 rounded-xl transition-all active:scale-95"
-                              >
-                                Add
-                              </Button>
-                              <Button
-                                onClick={() => setIsAddingCustomKeyword(false)}
-                                variant="ghost"
-                                size="sm"
-                                className="h-11 w-11 p-0 rounded-xl hover:bg-destructive/10 hover:text-destructive transition-colors"
-                              >
-                                <XCircle className="w-5 h-5" />
-                              </Button>
-                            </div>
-                          </div>
-                        )}
+                            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent -translate-x-full group-hover/btn:translate-x-full transition-transform duration-1000 ease-in-out" />
+                            {isLoading ? (
+                              <>
+                                <Loader2 className="w-6 h-6 animate-spin" />
+                                <span className="animate-pulse">Launching AI Swarm...</span>
+                              </>
+                            ) : (
+                              <>
+                                <Rocket className={cn("w-6 h-6 transition-transform duration-500", canProceed && "group-hover/btn:-translate-y-1 group-hover/btn:translate-x-1")} />
+                                <span className="tracking-wide">LAUNCH DEEP ANALYSIS</span>
+                                <ArrowRight className="w-5 h-5 ml-1 transition-transform duration-500 group-hover/btn:translate-x-1" />
+                              </>
+                            )}
+                          </Button>
+                        </div>
 
-                        {/* Suggestions Cloud */}
-                        <div className="space-y-6">
-                          <div className="flex items-center gap-3">
-                            <Label className="text-sm font-bold text-foreground/80 uppercase tracking-widest px-1">Industry Context</Label>
-                            <div className="h-px flex-1 bg-gradient-to-r from-border/50 to-transparent" />
+                      </div>
+                    </div>
+                  </>
+                ) : (
+                  // LOADING STATE
+                  <div className="min-h-[85vh] flex flex-col items-center justify-center p-8 relative overflow-hidden">
+                    {/* Background Ambient Glows */}
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-primary/10 rounded-full blur-[120px] animate-pulse" />
+                    <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] bg-indigo-500/10 rounded-full blur-[100px] animate-pulse delay-700" />
+
+                    <div className="w-full max-w-4xl grid lg:grid-cols-2 gap-16 items-center relative z-10">
+
+                      {/* Left Side: Premium Visualizer */}
+                      <div className="flex flex-col items-center justify-center space-y-12 order-2 lg:order-1">
+                        <div className="relative group">
+                          {/* Multi-layered Spinner */}
+                          <div className="relative w-64 h-64">
+                            <div className="absolute inset-0 rounded-full border-[8px] border-primary/5 animate-[spin_8s_linear_infinite]" />
+                            <div className="absolute inset-2 rounded-full border-[2px] border-dashed border-primary/20 animate-[spin_12s_linear_infinite_reverse]" />
+                            <div className="absolute inset-0 rounded-full border-t-[8px] border-primary shadow-glow duration-1000 animate-[spin_3s_cubic-bezier(0.4,0,0.2,1)_infinite]" />
+
+                            {/* Inner Orbiting Icons */}
+                            <div className="absolute inset-8 rounded-full border border-indigo-500/20 animate-[spin_6s_linear_infinite]">
+                              <div className="absolute -top-2 left-1/2 -translate-x-1/2 p-2 bg-background border border-indigo-500/40 rounded-lg shadow-glow-sm">
+                                <Cpu className="w-4 h-4 text-indigo-500" />
+                              </div>
+                            </div>
+
+                            {/* Center Icon: Dynamic based on active agent */}
+                            <div className="absolute inset-0 flex items-center justify-center">
+                              <div className="relative">
+                                <div className="absolute -inset-6 bg-primary/20 rounded-full blur-2xl animate-pulse" />
+                                {(() => {
+                                  const Icon = AGENTS[activeAgentIndex].icon;
+                                  return (
+                                    <div className="relative p-6 bg-background rounded-3xl border-2 border-primary/30 shadow-elevated animate-in zoom-in duration-500">
+                                      <Icon className={cn("w-12 h-12 transition-colors duration-500", AGENTS[activeAgentIndex].color)} />
+                                    </div>
+                                  );
+                                })()}
+                              </div>
+                            </div>
                           </div>
-                          <div className="flex flex-wrap gap-3.5">
-                            {suggestedKeywords
-                              .filter(k => !selectedKeywords.includes(k))
-                              .map((keyword, idx) => (
-                                <button
-                                  key={`${keyword}-${idx}`}
-                                  onClick={() => toggleKeyword(keyword)}
-                                  disabled={selectedKeywords.length >= 3}
-                                  className={cn(
-                                    "px-6 py-3 rounded-2xl text-[13px] font-bold border transition-all duration-300 shadow-sm relative overflow-hidden group",
-                                    selectedKeywords.length >= 3
-                                      ? "opacity-40 cursor-not-allowed bg-muted/50 border-border"
-                                      : "bg-background/40 hover:bg-indigo-600 hover:text-white hover:border-indigo-500 hover:-translate-y-1 hover:shadow-xl hover:shadow-indigo-500/20 border-border/60"
-                                  )}
-                                >
-                                  <span className="relative z-10">{keyword}</span>
-                                  {!selectedKeywords.length && (
-                                    <div className="absolute inset-0 bg-gradient-to-r from-indigo-500/5 to-violet-500/5 pointer-events-none" />
-                                  )}
-                                </button>
-                              ))
-                            }
+                        </div>
+
+                        <div className="text-center space-y-4">
+                          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 text-primary animate-pulse shadow-sm">
+                            <Sparkles className="w-4 h-4" />
+                            <span className="text-xs font-black uppercase tracking-[0.2em]">Agentic Intelligence Active</span>
+                          </div>
+                          <div className="space-y-1">
+                            <h2 className="text-4xl font-black tracking-tighter uppercase">
+                              <span className="gradient-text">{AGENTS[activeAgentIndex].name}</span>
+                            </h2>
+                            <p className="text-muted-foreground font-bold text-sm tracking-wide">{AGENTS[activeAgentIndex].status}</p>
                           </div>
                         </div>
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
 
-                {/* ========== ACTION BUTTON ========== */}
-                {selectedKeywords.length >= 1 && (
-                  <div className="flex flex-col items-center gap-6 pt-12 pb-24 animate-in fade-in slide-in-from-bottom-12 duration-1000 relative">
-                    <div className="absolute inset-0 bg-primary/5 blur-[120px] rounded-full pointer-events-none" />
-                    <Button
-                      onClick={handleStartAnalysis}
-                      disabled={!canProceed || isLoading}
-                      size="lg"
-                      className={cn(
-                        "w-full sm:w-auto min-w-[320px] h-20 text-2xl font-extrabold rounded-3xl shadow-[0_20px_60px_rgba(var(--primary),0.3)] transition-all duration-500 group relative overflow-hidden",
-                        isLoading
-                          ? "opacity-80 cursor-not-allowed"
-                          : "bg-primary text-white hover:bg-primary/90 hover:scale-[1.03] active:scale-95 hover:shadow-primary/50"
-                      )}
-                    >
-                      <div className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-                      {isLoading ? (
-                        <>
-                          <Loader2 className="mr-3 h-7 w-7 animate-spin" />
-                          Igniting Core Engine...
-                        </>
-                      ) : (
-                        <div className="flex items-center gap-4">
-                          <span>Launch Deep Analysis</span>
-                          <ArrowRight className="h-7 w-7 group-hover:translate-x-2 transition-transform duration-500" />
+                      {/* Right Side: Agent List Progress */}
+                      <div className="space-y-8 order-1 lg:order-2">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between">
+                            <h3 className="text-xs font-black uppercase tracking-[0.3em] text-muted-foreground/60">Swarm Intelligence</h3>
+                            <span className="text-[10px] font-bold text-primary bg-primary/10 px-2 py-0.5 rounded-full border border-primary/20">
+                              {Math.round(((activeAgentIndex + 1) / AGENTS.length) * 100)}%
+                            </span>
+                          </div>
+                          <div className="h-1.5 w-full bg-muted/50 rounded-full overflow-hidden border border-muted/20">
+                            <div
+                              className="h-full bg-gradient-to-r from-primary via-indigo-500 to-primary transition-all duration-1000 ease-out shadow-glow animate-gradient-flow"
+                              style={{ width: `${((activeAgentIndex + 1) / AGENTS.length) * 100}%` }}
+                            />
+                          </div>
                         </div>
-                      )}
-                    </Button>
-                    <p className="text-[11px] font-bold tracking-[0.2em] text-muted-foreground/60 uppercase animate-pulse">
-                      Processing benchmarks across millions of data points
-                    </p>
+
+                        <div className="space-y-3">
+                          {AGENTS.map((agent, index) => {
+                            const isActive = index === activeAgentIndex;
+                            const isCompleted = index < activeAgentIndex;
+                            const AgentIcon = agent.icon;
+
+                            return (
+                              <div
+                                key={agent.name}
+                                className={cn(
+                                  "flex items-center gap-5 p-4 rounded-2xl border transition-all duration-500 relative overflow-hidden group/agent",
+                                  isActive ? "bg-card border-primary/40 shadow-glow/10 translate-x-2 scale-[1.02]" :
+                                    isCompleted ? "bg-emerald-500/5 border-emerald-500/20 opacity-80" :
+                                      "bg-muted/30 border-transparent opacity-30"
+                                )}
+                              >
+                                {isActive && (
+                                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 via-transparent to-transparent animate-in slide-in-from-left duration-1000" />
+                                )}
+                                <div className={cn(
+                                  "w-11 h-11 rounded-xl flex items-center justify-center shrink-0 transition-all duration-700 relative z-10",
+                                  isActive ? "bg-primary text-primary-foreground shadow-glow rotate-0 scale-110" :
+                                    isCompleted ? "bg-emerald-500 text-white" :
+                                      "bg-background text-muted-foreground"
+                                )}>
+                                  {isCompleted ? <Check className="w-6 h-6 animate-in zoom-in duration-300" /> : <AgentIcon className="w-5 h-5" />}
+                                </div>
+                                <div className="flex-1 min-w-0 relative z-10">
+                                  <div className="flex items-center justify-between">
+                                    <span className={cn(
+                                      "font-black text-xs uppercase tracking-wider transition-colors duration-500",
+                                      isActive ? "text-foreground" : "text-muted-foreground"
+                                    )}>{agent.name}</span>
+                                    {isActive && <Loader2 className="w-4 h-4 animate-spin text-primary" />}
+                                  </div>
+                                  <p className="text-[10px] font-bold tracking-tight uppercase opacity-60">
+                                    {isCompleted ? "Analysis Complete" : isActive ? "Processing Insights..." : "Awaiting activation"}
+                                  </p>
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+
+                        <div className="flex flex-col items-center gap-2">
+                          <p className="text-[10px] text-muted-foreground/60 font-black tracking-[0.2em] uppercase">
+                            Estimated time remaining: {Math.max(0, (AGENTS.length - activeAgentIndex - 1) * 2)}s
+                          </p>
+                        </div>
+                      </div>
+
+                    </div>
                   </div>
                 )}
-              </div>
+              </main >
             </div>
-          ) : (
-            /* ========== ANALYZING STATE ========== */
-            <div className="flex flex-col items-center justify-center min-h-[70vh] px-4">
-              <div className="relative mb-12">
-                <div className="w-32 h-32 rounded-3xl bg-primary/10 flex items-center justify-center animate-pulse relative z-10 border border-primary/20">
-                  <Search className="w-16 h-16 text-primary" />
-                </div>
-                {/* Decorative Elements */}
-                <div className="absolute -inset-4 bg-primary/5 rounded-full blur-2xl animate-pulse" />
-                <div className="absolute -top-4 -right-4 w-12 h-12 bg-amber-500/10 rounded-full blur-xl animate-bounce duration-[3000ms]" />
-                <div className="absolute -bottom-4 -left-4 w-12 h-12 bg-indigo-500/10 rounded-full blur-xl animate-bounce duration-[4000ms]" />
-              </div>
-
-              <div className="max-w-md w-full text-center space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-1000">
-                <div className="space-y-3">
-                  <h3 className="text-3xl font-extrabold tracking-tight text-foreground">
-                    Analyzing Your Brand
-                  </h3>
-                  <p className="text-lg text-muted-foreground leading-relaxed">
-                    Our AI is scanning millions of data points across the search ecosystem to map your brand visibility.
-                  </p>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="h-2.5 bg-muted rounded-full overflow-hidden p-0.5 border border-border/50">
-                    <div className="h-full bg-gradient-to-r from-primary via-indigo-500 to-primary bg-[length:200%_auto] animate-gradient-flow rounded-full w-full" />
-                  </div>
-                  <div className="flex justify-between items-center text-xs font-bold uppercase tracking-widest text-muted-foreground/60">
-                    <span>Gathering Data</span>
-                    <span>Processing Insights</span>
-                  </div>
-                </div>
-
-                <div className="pt-8 border-t border-border/50 flex flex-col items-center gap-4">
-                  <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 rounded-full border border-border/50 backdrop-blur-sm">
-                    <Loader2 className="w-4 h-4 animate-spin text-primary" />
-                    <span className="text-sm font-semibold text-foreground">Creating your dashboard</span>
-                  </div>
-                  <p className="text-xs text-muted-foreground italic">
-                    Estimated completion: 30-45 seconds
-                  </p>
-                </div>
-              </div>
-            </div>
-          )}
-        </main>
-      </div>
-    </Layout>
+          </Layout >
+        </div>
+      </SidebarProvider >
+    </ResultsContext.Provider >
   );
 }

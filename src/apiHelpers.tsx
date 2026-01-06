@@ -202,6 +202,7 @@ export interface OnboardingDataRequest {
   website: string;
   business_domain?: string;
   application_id: string;
+  product_id?: string;
 }
 
 export interface OnboardingCompetitor {
@@ -218,7 +219,8 @@ export interface OnboardingDataResponse {
 
 export const fetchOnboardingData = async (
   website: string,
-  business_domain?: string
+  business_domain?: string,
+  productId?: string
 ): Promise<OnboardingDataResponse> => {
   try {
     let appId = localStorage.getItem("application_id");
@@ -233,6 +235,7 @@ export const fetchOnboardingData = async (
       website,
       application_id: appId,
       ...(business_domain && { business_domain }),
+      ...(productId && { product_id: productId }),
     };
 
     const res = await API.post(API_ENDPOINTS.onboardingData, payload);
