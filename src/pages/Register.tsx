@@ -26,8 +26,54 @@ const Register = () => {
   const { toast } = useToast();
   const navigate = useNavigate();
 
+  // Check if email is educational
+  const isEducationalEmail = (email: string) => {
+    const eduPatterns = [
+      // Generic .edu domains (USA and global)
+      /\.edu$/i,
+      /\.edu\./i,
+      
+      // Academic domains (.ac)
+      /\.ac\.[a-z]{2,}$/i,
+      /\.ac\./i,
+      
+      // Country-specific educational domains
+      /\.edu\.[a-z]{2,}$/i,        // .edu.in, .edu.au, .edu.sg, .edu.cn, .edu.sa
+      /\.edu\.in$/i,                // India
+      /\.ac\.in$/i,                 // India academic
+      /\.ac\.uk$/i,                 // UK
+      /\.edu\.au$/i,                // Australia
+      /\.ac\.jp$/i,                 // Japan
+      /\.ac\.kr$/i,                 // South Korea
+      /\.ac\.ae$/i,                 // UAE
+      /\.edu\.cn$/i,                // China
+      /\.edu\.sg$/i,                // Singapore
+      /\.edu\.sa$/i,                // Saudi Arabia
+      
+      // European university domains
+      /\.uni-[a-z]+\.de$/i,         // German universities
+      /\.university\.[a-z]{2,}$/i,  // Generic university domains
+      
+      // Specific educational TLDs
+      /@[a-z0-9-]+\.edu$/i,         // All .edu emails
+      /@[a-z0-9-]+\.ac\./i,         // All .ac. emails
+    ];
+    return eduPatterns.some(pattern => pattern.test(email));
+  };
+
+  const isEmailEducational = isEducationalEmail(email);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    if (isEmailEducational) {
+      toast({
+        title: "Educational email not supported",
+        description: "Please use a personal or business email address instead of an educational email.",
+        variant: "destructive",
+      });
+      return;
+    }
 
     if (password !== confirmPassword) {
       toast({
@@ -126,6 +172,11 @@ const Register = () => {
                 className="bg-background"
                 autoComplete="off"
               />
+              {isEmailEducational && email && (
+                <p className="text-sm text-red-600">
+                  Educational emails are not supported. Please use a personal or business email address.
+                </p>
+              )}
             </div>
 
             {/* Password */}
@@ -177,7 +228,7 @@ const Register = () => {
             <Button
               type="submit"
               className="w-full bg-gradient-primary hover:opacity-90 transition-opacity"
-              disabled={isLoading}
+              disabled={isLoading || isEmailEducational}
             >
               {isLoading ? (
                 <>
