@@ -179,6 +179,11 @@ const OverviewContent = () => {
               <TierBadge tier={visibilityData.tier} />
             </div>
 
+            {/* Header */}
+            <div className="grid grid-cols-[auto_1fr_auto] gap-3 text-xs text-muted-foreground mb-3 pb-2 border-b border-border">
+              <span>A  weighted score based on where and how often your brand appears in AI responses across multiple LLMs</span>
+            </div>
+
             {/* Score Display */}
             <div className="border-2 border-border rounded-lg p-3 mb-4">
               <div className="text-center">
@@ -283,7 +288,7 @@ const OverviewContent = () => {
             </div>
 
             {/* FIX 4: Add unique keys using brand name + index */}
-            <div className="space-y-3">
+            <div className="space-y-3 py-2">
               {brandMentionRates.map((item, index) => {
                 return (
                   <div
@@ -349,8 +354,12 @@ const OverviewContent = () => {
               </div>
               <TierBadge tier={sentiment.dominant_sentiment} />
             </div>
+            {/* Header */}
+            <div className="grid grid-cols-[auto_1fr_auto] gap-3 text-xs text-muted-foreground mb-3 pb-2 border-b border-border">
+              <span>How AI models perceives your brand</span>
+            </div>
             <div className="flex flex-col items-center justify-center py-2">
-              <p className="text-sm text-muted-foreground text-center leading-relaxed">
+              <p className="text-sm text-foreground text-center leading-relaxed">
                 {sentiment.summary || "No sentiment data available"}
               </p>
             </div>
